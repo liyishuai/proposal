@@ -1,0 +1,43 @@
+\documentclass{article}
+\usepackage{fullpage}
+\title{From Interaction Trees to Asynchronous Tests}
+\author{Yishuai Li}
+\begin{document}
+\maketitle
+\section{Introduction}
+Importance of rigorous testing in software development.
+
+Main challenge: nondeterminism in various parts of the system.
+
+Goal: a systematic testing framework for networked systems, addressing internal
+nondeterminism and network nondeterminism.
+
+Methodology: interpret model specification into testing logic; introduce
+abstract representation for test input generation and shrinking.
+
+Broader impact: Handling network nondeterminism is the first step towards
+testing generic concurrent systems.  Automatically deriving tests from formal
+specifications enables iterative incremental development of reliable software.
+
+\section{Background}
+Property-based testing with QuickChick.  Limitation: nondeterminism makes
+validation logic hard to write.
+
+Model-based testing in ISSTA paper and its related work.
+\section{Research Plan}
+\subsection{Test input generation and shrinking}
+Interesting test inputs might depend on runtime observations of the system.  To
+represent such dependency, I'll propose an abstract language for test inputs.
+The language enables generating new inputs based on previous observations during
+test.  In particular, it can handle partial observation caused by internal and
+network nondeterminism.
+
+\subsection{Generic specification language}
+Based on my experiments on various web applications, I'll propose a generic
+library for specifying application-level protocols.  Developers use the
+domain-specific language to define protocol-specific aspects {\it e.g.}
+prototype logic, message encoding {\it etc.}  and the library automatically
+derives the specification into an interactive tester client that can reveal
+servers' incomformance effectively.
+
+\end{document}
