@@ -1,5 +1,12 @@
 \documentclass{article}
 \usepackage{fullpage}
+\usepackage[dvipsnames,svgnames,x11names]{xcolor}
+\usepackage{listings,lstparams,lstcoq}
+\lstdefinestyle{customcoq}{
+    language=Coq
+}
+\newcommand{\ilc}[1]{\lstinline[style=customcoq]{#1}}
+
 \title{From Interaction Trees to Asynchronous Tests}
 \author{Yishuai Li}
 \begin{document}
@@ -19,13 +26,29 @@ Broader impact: Handling network nondeterminism is the first step towards
 testing generic concurrent systems.  Automatically deriving tests from formal
 specifications enables iterative incremental development of reliable software.
 
+Todo thesis claim.  What technology solves what problem.
+
+5--6 pages.
+
 \section{Background}
 Property-based testing with QuickChick.  Limitation: nondeterminism makes
 validation logic hard to write.
 
-Model-based testing in ISSTA paper and its related work.
+ISSTA related work.
+
+5--6+ pages.
+
+\section{Prior Results}
+Model-based testing in ISSTA paper.
+
+Refactor previous paper.
+
 \section{Research Plan}
-\subsection{Test input generation and shrinking}
+\subsection{Test Input Generation and Shrinking}
+
+\subsubsection{Tester language}
+A tester is a client program that performs \ilc{send} and \ilc{recv} interactions.
+
 Interesting test inputs might depend on runtime observations of the system.  To
 represent such dependency, I'll propose an abstract language for test inputs.
 The language enables generating new inputs based on previous observations during
@@ -39,5 +62,9 @@ domain-specific language to define protocol-specific aspects {\it e.g.}
 prototype logic, message encoding {\it etc.}  and the library automatically
 derives the specification into an interactive tester client that can reveal
 servers' incomformance effectively.
+
+5--6+ pages.  Include technical details for evaluation.
+
+Timeline towards dissertation.  Month-level schedule, including publication.
 
 \end{document}
