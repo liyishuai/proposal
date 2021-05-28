@@ -1,11 +1,21 @@
 \documentclass{article}
 \usepackage{fullpage}
+\usepackage{hyperref,natbib}
+\bibliographystyle{humannat}
+
 \usepackage[dvipsnames,svgnames,x11names]{xcolor}
-\usepackage{listings,lstparams,lstcoq}
+\usepackage{textcomp,listings,lstparams,lstcoq}
 \lstdefinestyle{customcoq}{
-    language=Coq
+  language=Coq,
+  literate={<>}{$\ne$}1
 }
 \newcommand{\ilc}[1]{\lstinline[style=customcoq]{#1}}
+
+\usepackage{draft} % local
+\newif\ifdraft\drafttrue
+\newnote{lys}{BrickRed}
+\newnote{bcp}{Chocolate}
+\newnote{sz}{violet}
 
 \title{From Interaction Trees to Asynchronous Tests}
 \author{Yishuai Li}
@@ -46,14 +56,97 @@ Refactor previous paper.
 \section{Research Plan}
 \subsection{Test Input Generation and Shrinking}
 
-\subsubsection{Tester language}
-A tester is a client program that performs \ilc{send} and \ilc{recv} interactions.
+One challenge for random testing is that, to find failing examples efficiently,
+it is important to generate fairly large test cases.  But then, after a failing
+test case has been found, it is important to \textit{minimize} the test input to
+eliminate the parts that are not relevant to provoking the failure.  Tools like
+QuickCheck therefore provide automatic methods for minimizing, or {\em
+  shrinking}, failing tests, by incrementally generating smaller variants until
+they reach a local minimum---a counterexample that cannot be reduced any
+further.
 
-Interesting test inputs might depend on runtime observations of the system.  To
-represent such dependency, I'll propose an abstract language for test inputs.
-The language enables generating new inputs based on previous observations during
-test.  In particular, it can handle partial observation caused by internal and
-network nondeterminism.
+Traditional shrinking doesn't work well for impure programs, which might mutate
+state or interact with their environments, because an interesting test input in
+one execution might become trivial or irrelevant in another run.  In particular,
+when testing an interactive program, interesting test inputs might depend on
+existing observations of the program's behavior.
+
+To generate and shrink inputs that are interesting among different executions,
+\citet{Hughes2007} introduced a method that relates inputs to runtime
+observations.  In this framework, the tester interacts with the system under
+test (SUT) via function calls, and maintains a runtime state that is updated
+after each call returns.  Test inputs are represented in an abstract language
+that depends on the runtime state {\it e.g.} ``call function \ilc{foo(x)}, where
+\ilc{x} is the return value of the 10th function call''.  Such abstract
+representation is instantiated into a concrete input during runtime, by
+remembering the 10th call's return value \ilc{a} to build the actual function
+call \ilc{foo(a)}.
+
+This methodology has achieved good results in testing state
+machines~\citet{Hughes2016}, but the specification language requires the
+interactions to be synchronous {\it i.e.} to return immediately upon call.
+However, when testing networked systems, requests and responses might be delayed
+or reordered \textit{en route}.  Such a scenario requires a different
+specification language that allows asynchronous
+interactions~\cite{li2021modelbased}, introducing new challenges in minimizing
+test inputs, {\it e.g.} when a dependent response has not arrived.
+
+\subsubsection{Overview}
+\begin{figure}
+  Validator and test harness working together.
+  \caption{Test framework}
+  \label{fig:framework}
+\end{figure}
+
+As shown in \autoref{fig:framework}, the test framework consists of a {\em
+  validator} that determines whether the SUT's behavior satisfies the
+specification, and a {\em test harness} that generates test inputs for the
+validator.
+
+A {\em validator} is a client-side model program that observes messages sent and
+received and decides whether these interactions are conformant to the
+specification.  For example, a simple validator for echo server is written as:
+\begin{lstlisting}[style=customcoq]
+  let validateEcho =
+    request := sendRequest();
+    response := recvResponse();
+    if response <> request
+    then reject
+    else validate
+\end{lstlisting}
+Notice that the \ilc{sendRequest} event does not take the request to be sent as
+argument, but in stead returns the request actually sent.  The validator only
+describes the logic that checks messages sent and received, while the test
+harness computes what requests to send.
+
+The {\em test harness} takes a validator and turns it into an executable program
+that performs network interactions.  It handles the validator's send and receive
+events, and generates the requests to be sent.  A simple test harness for the
+validator above is written as:
+\begin{lstlisting}[style=customcoq]
+  let execute(v) =
+    match v with
+    | x := sendRequest(); v'(x) =>
+      request := arbitraryRequest();
+      sendBytes(print(request));
+      execute(v'(request))
+    | x := recvRequest(); v'(x) =>
+      responseBytes := recvBytes();
+      execute(v'(parse(responseBytes)))
+    | reject => reject
+    end in
+  execute(validateEcho)
+  (* ... is equivalent to ... *)
+  let executeValidateEcho =
+    request := arbitraryRequest();
+    sendBytes(print(request));
+    responseBytes := recvBytes();
+    if parse(responseBytes) <> request
+    then reject
+    else executeValidateEcho
+\end{lstlisting}
+
+
 
 \subsection{Generic specification language}
 Based on my experiments on various web applications, I'll propose a generic
@@ -66,5 +159,7 @@ servers' incomformance effectively.
 5--6+ pages.  Include technical details for evaluation.
 
 Timeline towards dissertation.  Month-level schedule, including publication.
+
+\bibliography{ref}
 
 \end{document}
