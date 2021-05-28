@@ -1,7 +1,11 @@
 \documentclass{article}
 \usepackage{fullpage}
-\usepackage{hyperref,natbib}
-\bibliographystyle{humannat}
+\usepackage{hyperref}
+\usepackage[
+  backend=bibtex,
+  style=numeric,
+  maxcitenames=2]{biblatex}
+\addbibresource{ref}
 
 \usepackage[dvipsnames,svgnames,x11names]{xcolor}
 \usepackage{textcomp,listings,lstparams,lstcoq}
@@ -72,7 +76,7 @@ when testing an interactive program, interesting test inputs might depend on
 existing observations of the program's behavior.
 
 To generate and shrink inputs that are interesting among different executions,
-\citet{Hughes2007} introduced a method that relates inputs to runtime
+\textcite{Hughes2007} introduced a method that relates inputs to runtime
 observations.  In this framework, the tester interacts with the system under
 test (SUT) via function calls, and maintains a runtime state that is updated
 after each call returns.  Test inputs are represented in an abstract language
@@ -83,7 +87,7 @@ remembering the 10th call's return value \ilc{a} to build the actual function
 call \ilc{foo(a)}.
 
 This methodology has achieved good results in testing state
-machines~\citet{Hughes2016}, but the specification language requires the
+machines~\cite{Hughes2016}, but the specification language requires the
 interactions to be synchronous {\it i.e.} to return immediately upon call.
 However, when testing networked systems, requests and responses might be delayed
 or reordered \textit{en route}.  Such a scenario requires a different
@@ -91,16 +95,28 @@ specification language that allows asynchronous
 interactions~\cite{li2021modelbased}, introducing new challenges in minimizing
 test inputs, {\it e.g.} when a dependent response has not arrived.
 
+I'll propose a generic method for generating and minimizing asynchronous test
+interactions, by combining the idea of abstract input representation
+from~\textcite{Hughes2007} with the asynchronous specification language
+of~\textcite{li2021modelbased}.  The tester records a {\em trace} of network
+packets sent and received, and uses the trace to instantiate abstract inputs
+into concrete requests to send.  The key inovation is an intermediate
+representation (IR) between structured application messages and bytes.  The IR
+allows the generated abstract input to refer to specific fields in the trace,
+and can handle situations where the referred field is absent (caused by internal
+or network nondeterminism).
+
 \subsubsection{Overview}
 \begin{figure}
-  Validator and test harness working together.
-  \caption{Test framework}
-  \label{fig:framework}
+  Todo: validator and test harness working together.  No IR or J-expressions in
+  this figure.
+  \caption{Test framework overview}
+  \label{fig:overview}
 \end{figure}
 
-As shown in \autoref{fig:framework}, the test framework consists of a {\em
+As shown in \autoref{fig:overview}, the test framework consists of a {\em
   validator} that determines whether the SUT's behavior satisfies the
-specification, and a {\em test harness} that generates test inputs for the
+specification, and a {\em test harness} that provides test inputs for the
 validator.
 
 A {\em validator} is a client-side model program that observes messages sent and
@@ -146,7 +162,16 @@ validator above is written as:
     else executeValidateEcho
 \end{lstlisting}
 
+The \ilc{arbitraryRequest} generator here produces requests randomly.  To
+generate requests that depend on previously observed messages, my framework will
+extend the test harness in \autoref{fig:overview} that records a trace of
+messages.
 
+\subsubsection{Methodology}
+\begin{figure}
+  \caption{Test harness mechanism}
+  \label{fig:harness}
+\end{figure}
 
 \subsection{Generic specification language}
 Based on my experiments on various web applications, I'll propose a generic
@@ -160,6 +185,6 @@ servers' incomformance effectively.
 
 Timeline towards dissertation.  Month-level schedule, including publication.
 
-\bibliography{ref}
+\printbibliography
 
 \end{document}
