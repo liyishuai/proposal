@@ -1,5 +1,5 @@
 \documentclass{article}
-\usepackage{fullpage}
+\usepackage{fullpage,graphicx}
 \usepackage{hyperref}
 \usepackage[
   backend=bibtex,
@@ -108,8 +108,8 @@ or network nondeterminism).
 
 \subsubsection{Overview}
 \begin{figure}
-  Todo: validator and test harness working together.  No IR or J-expressions in
-  this figure.
+  \centering
+  \includegraphics[width=.5\textwidth]{figures/overview}
   \caption{Test framework overview}
   \label{fig:overview}
 \end{figure}
@@ -169,6 +169,8 @@ messages.
 
 \subsubsection{Methodology}
 \begin{figure}
+  \centering
+  \includegraphics[width=.5\textwidth]{figures/harness}
   \caption{Test harness mechanism}
   \label{fig:harness}
 \end{figure}
