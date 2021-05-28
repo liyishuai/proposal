@@ -175,6 +175,13 @@ messages.
   \label{fig:harness}
 \end{figure}
 
+As shown in \autoref{fig:harness}, the test harness records a trace of requests
+and responses, using an generic intermediate representation.  Requests are
+generated as ``J-expressions'' that can be instantiated into a request IR based
+on the trace.  For each protocol to test, the developers need to specify how to
+generate J-expressions that represent requests.  Developers also need to define
+how to interpret between the IR, bytes, and application messages.
+
 \subsection{Generic specification language}
 Based on my experiments on various web applications, I'll propose a generic
 library for specifying application-level protocols.  Developers use the
