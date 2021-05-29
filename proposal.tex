@@ -13,6 +13,8 @@
   language=Coq,
   literate={<>}{$\ne$}1
 }
+\lstdefinelanguage{json}{
+}
 \newcommand{\ilc}[1]{\lstinline[style=customcoq]{#1}}
 
 \usepackage{draft} % local
@@ -109,7 +111,7 @@ or network nondeterminism).
 \subsubsection{Overview}
 \begin{figure}
   \centering
-  \includegraphics[width=.5\textwidth]{figures/overview}
+  \includegraphics[width=.9\textwidth]{figures/overview}
   \caption{Test framework overview}
   \label{fig:overview}
 \end{figure}
@@ -167,10 +169,10 @@ generate requests that depend on previously observed messages, my framework will
 extend the test harness in \autoref{fig:overview} that records a trace of
 messages.
 
-\subsubsection{Methodology}
+\subsubsection{Architecture}
 \begin{figure}
   \centering
-  \includegraphics[width=.5\textwidth]{figures/harness}
+  \includegraphics[width=.9\textwidth]{figures/harness}
   \caption{Test harness mechanism}
   \label{fig:harness}
 \end{figure}
@@ -180,7 +182,76 @@ and responses, using an generic intermediate representation.  Requests are
 generated as ``J-expressions'' that can be instantiated into a request IR based
 on the trace.  For each protocol to test, the developers need to specify how to
 generate J-expressions that represent requests.  Developers also need to define
-how to interpret between the IR, bytes, and application messages.
+how to interpret among the IR, bytes, and application messages.
+
+\subsubsection{Intermediate representation language}
+The purpose of introducing an IR in this framework is to enable a generic method
+for generating requests that refer to specific fields in the trace.  For
+example, when testing conditional HTTP requests, the generator wants to include
+``a precondition that uses the ETag field of a previous response''; when testing
+an online store, the generator wants to provide ``an order ID that the server
+has mentioned before''.
+
+I choose JSON as the intermediate representation.  Since JSON itself is widely
+used in web applications, the IR should provide the flexibility for developers
+to refer to any field in a JSON message, which might involve arbitrarily deep
+path down the syntax tree.
+
+\begin{figure}
+  \begin{lstlisting}[style=customcoq]
+    Example response1 : http_response :=
+      Response (Status (Version 1 1) 200 (Some "OK"))
+               [Field "ETag" "tag-foo";
+                Field "Content-Length" "11"]
+               (Some "content-bar").
+
+    Example response2 : store_response :=
+      Response__ListOrders [(233, (12, 100, 34, 500));
+                            (996, (56, 400, 78, 20))].
+  \end{lstlisting}
+  \begin{minipage}[t]{.4\textwidth}
+    \begin{lstlisting}[language=json]
+      {
+        "version": {
+          "major": 1,
+          "minor": 1,
+        },
+        "code": 200,
+        "reason": "OK",
+        "fields": {
+          "ETag": "tag-foo",
+          "Content-Length": "11",
+        },
+        "body": "content-bar",
+      }
+    \end{lstlisting}
+  \end{minipage}%
+  \begin{minipage}[t]{.4\textwidth}
+    \begin{lstlisting}[language=json]
+      {
+        "code": 200,
+        "orders": [
+          {
+            "ID": 233,
+            "BuyerID": 12,
+            "BuyAmount": 100,
+            "SellerID": 34,
+            "SellAmount": 500
+          },
+          {
+            "ID": 996,
+            "BuyerID": 56,
+            "BuyAmount": 400,
+            "SellerID": 78,
+            "SellAmount": 20
+          }
+        ]
+      }
+    \end{lstlisting}
+  \end{minipage}
+  \caption{Application message example for HTTP and online store protocols, and
+    their corresponding intermediate representation}
+\end{figure}
 
 \subsection{Generic specification language}
 Based on my experiments on various web applications, I'll propose a generic
