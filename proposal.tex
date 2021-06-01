@@ -12,8 +12,10 @@
 \lstdefinestyle{customcoq}{
   language=Coq,
   literate={<>}{$\ne$}1
+  {->}{$\to$}1
 }
-\lstdefinelanguage{json}{
+\lstdefinestyle{json}{
+  language=Coq
 }
 \newcommand{\ilc}[1]{\lstinline[style=customcoq]{#1}}
 
@@ -195,7 +197,8 @@ has mentioned before''.
 I choose JSON as the intermediate representation.  Since JSON itself is widely
 used in web applications, the IR should provide the flexibility for developers
 to refer to any field in a JSON message, which might involve arbitrarily deep
-path down the syntax tree.
+path down the syntax tree.  \autoref{fig:ir} shows the intermediate
+representation for two protocols.
 
 \begin{figure}
   \begin{lstlisting}[style=customcoq]
@@ -210,24 +213,24 @@ path down the syntax tree.
                             (996, (56, 400, 78, 20))].
   \end{lstlisting}
   \begin{minipage}[t]{.4\textwidth}
-    \begin{lstlisting}[language=json]
+    \begin{lstlisting}[style=json]
       {
         "version": {
           "major": 1,
-          "minor": 1,
+          "minor": 1
         },
         "code": 200,
         "reason": "OK",
         "fields": {
           "ETag": "tag-foo",
-          "Content-Length": "11",
+          "Content-Length": "11"
         },
-        "body": "content-bar",
+        "body": "content-bar"
       }
     \end{lstlisting}
   \end{minipage}%
   \begin{minipage}[t]{.4\textwidth}
-    \begin{lstlisting}[language=json]
+    \begin{lstlisting}[style=json]
       {
         "code": 200,
         "orders": [
@@ -251,7 +254,88 @@ path down the syntax tree.
   \end{minipage}
   \caption{Application message example for HTTP and online store protocols, and
     their corresponding intermediate representation}
+  \label{fig:ir}
 \end{figure}
+
+To represent the correspondence between requests and responses, the trace labels
+each message, and the request-response pair have the same label.
+\autoref{fig:trace} shows a trace of messages sent and received by the tester
+client.
+
+\begin{figure}
+  \begin{minipage}{.5\textwidth}
+    \begin{lstlisting}[style=json]
+      [
+        {
+          "label": 10,
+          "message": {
+            "method": "GET",
+            "path": "index.html"
+          }
+        },
+        {
+          "label": 20,
+          "message": {
+            "method": "DELETE",
+            "path": "index.html"
+          }
+        },
+        {
+          "label": 20,
+          "message": {
+            "code": 204,
+            "reason": "No Content",
+          }
+        },
+        {
+          "label": 10,
+          "message": {
+            "code": 410,
+            "reason": "Gone"
+          }
+        }
+      ]
+    \end{lstlisting}
+  \end{minipage}%
+  \begin{minipage}{.5\textwidth}
+    \includegraphics[width=\textwidth]{figures/trace}
+  \end{minipage}
+  \caption{Example client-side trace and its corresponding IR}
+  \label{fig:trace}
+\end{figure}
+
+Based on this unified structure of messages, I introduce a symbolic language for
+representing requests, called ``J-expressions''.  The J-expression is similar to
+JSON, except that it allows a pointer notation that refers to the trace.  For
+example, the following J-expression represents a \ilc{takeOrder} request whose
+order ID is equal to the second order's ID in the message labelled 30:
+
+\begin{lstlisting}[style=customcoq]
+  Example xreq2 : jexp :=
+    object [
+      ("method", "takeOrder"); ("user", 2);
+      ("order", ref 30 (this@"orders"#2@"ID") id)].
+\end{lstlisting}
+
+Notice the \ilc{ref} in the final line: The first argument 30 is the message
+label in the trace.  The following \ilc{this@"orders"#2@"ID"} is a path for the
+generator to search in the IR, pronounced ``the `ID' field in the 2nd entry of
+the array named `orders' ''.  The last argument is the transformer function that
+maps the found field to the generated request, here \ilc{id} means the found
+order ID is used in the result request verbatim.
+
+Suppose a trace contains a message labelled 30, and its payload is the second
+example in \autoref{fig:ir}, then the request generator can find the
+corresponding order ID in the request {\it i.e.}  996, and construct the
+following request IR based on the J-expression above:
+
+\begin{lstlisting}[style=json]
+  {
+    "method": "takeOrder",
+    "user": 2,
+    "order": 996
+  }
+\end{lstlisting}
 
 \subsection{Generic specification language}
 Based on my experiments on various web applications, I'll propose a generic
