@@ -15,15 +15,21 @@
   {->}{$\to$}1
 }
 \lstdefinestyle{json}{
-  language=Coq
+  language=Coq,
+  literate={@}{$@$}1
+  {this}{$\ottkw{this}$}4
+  {ref}{$\ottkw{ref}$}3
 }
 \newcommand{\ilc}[1]{\lstinline[style=customcoq]{#1}}
+\newcommand{\ilj}[1]{\lstinline[style=json]{#1}}
 
 \usepackage{draft} % local
 \newif\ifdraft\drafttrue
 \newnote{lys}{BrickRed}
 \newnote{bcp}{Chocolate}
 \newnote{sz}{violet}
+
+\input{jexp}
 
 \title{From Interaction Trees to Asynchronous Tests}
 \author{Yishuai Li}
@@ -174,7 +180,7 @@ messages.
 \subsubsection{Architecture}
 \begin{figure}
   \centering
-  \includegraphics[width=.9\textwidth]{figures/harness}
+  \includegraphics[width=.8\textwidth]{figures/harness}
   \caption{Test harness mechanism}
   \label{fig:harness}
 \end{figure}
@@ -304,25 +310,32 @@ client.
   \label{fig:trace}
 \end{figure}
 
-Based on this unified structure of messages, I introduce a symbolic language for
-representing requests, called ``J-expressions''.  The J-expression is similar to
-JSON, except that it allows a pointer notation that refers to the trace.  For
-example, the following J-expression represents a \ilc{takeOrder} request whose
-order ID is equal to the second order's ID in the message labelled 30:
+\begin{figure}
+  \ottall
+  \caption{Formal definition of J-expressions}
+  \label{fig:jexp}
+\end{figure}
 
-\begin{lstlisting}[style=customcoq]
-  Example xreq2 : jexp :=
-    object [
-      ("method", "takeOrder"); ("user", 2);
-      ("order", ref 30 (this@"orders"#2@"ID") id)].
+Based on this unified structure of messages, I introduce a symbolic language for
+representing requests, called ``J-expressions'', defined in \autoref{fig:jexp}.
+The J-expression is similar to JSON, except that it allows a pointer notation
+that refers to the trace.  For example, the following J-expression represents a
+\ilc{takeOrder} request whose order ID is equal to the second order's ID in the
+message labelled 30:
+\begin{lstlisting}[style=json]
+  {
+    "method": "takeOrder",
+    "user": 2,
+    "order": ref 30 (this@"orders"#2@"ID") id
+  }
 \end{lstlisting}
 
 Notice the \ilc{ref} in the final line: The first argument 30 is the message
-label in the trace.  The following \ilc{this@"orders"#2@"ID"} is a path for the
+label in the trace.  The following \ilj{this@"orders"#2@"ID"} is a path for the
 generator to search in the IR, pronounced ``the `ID' field in the 2nd entry of
 the array named `orders' ''.  The last argument is the transformer function that
-maps the found field to the generated request, here \ilc{id} means the found
-order ID is used in the result request verbatim.
+maps the found field to the generated request, here \ilj{id} is the identical
+function, meaning the found order ID is used in the result request verbatim.
 
 Suppose a trace contains a message labelled 30, and its payload is the second
 example in \autoref{fig:ir}, then the request generator can find the
@@ -336,6 +349,27 @@ following request IR based on the J-expression above:
     "order": 996
   }
 \end{lstlisting}
+
+\subsubsection{Instantiating J-expression into request IR}
+Suppose the test developer has generated some J-expression to represent request
+to send, the tester harness needs to instantiate the J-expression into the
+request IR.  In particular, \ilj{ref} expression referrs to a field in the
+trace, so the test harness should locate its corresponding value.
+
+When testing networked systems, response packets might be delayed by the
+network.  As a result, when the tester wants to send a request that depends on a
+response labelled $l$, it is possible that the response hasn't arrived yet.  In
+this case, to avoid blocking the program, the test harness should find some
+fallback options to instantiate the J-expression.  A useful solution is to
+ignore the label and find if any message in the trace has a field of the given
+J-path.  \lys{My implementation is highly functional.  Translate into imperative
+  pseudocode here?}
+
+Even if the labelled response has arrived, considering internal nondeterminism,
+the response might not have a field of the given J-path {\it e.g.}  the
+J-expression doesn't have a second entry in the \ilj{"orders"} array.  In this
+case, the test harness can ignore the index and pick any entry in the array as
+fallback.
 
 \subsection{Generic specification language}
 Based on my experiments on various web applications, I'll propose a generic

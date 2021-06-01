@@ -1,0 +1,28 @@
+metavar l ::= {{ com trace labels    }}
+metavar f ::= {{ com functions       }}
+metavar s ::= {{ com string literals }}
+metavar i ::= {{ com integers        }}
+
+grammar
+jexp :: 'Jexp__' ::= {{ com J-expressions }}
+| ref l p f  :: :: Ref
+| { object } :: :: Object
+| [ array  ] :: :: Array
+| s          :: :: String
+| i          :: :: Number
+| true       :: :: True
+| false      :: :: False
+| null       :: :: Null
+
+object :: 'o_' ::=
+|                   :: :: nil
+| " s " : jexp , object :: :: cons
+
+array :: 'a_' ::=
+|              :: :: nil
+| jexp , array :: :: cons
+
+p :: 'Jpath__' ::= {{ com J-paths }}
+| this  :: :: this
+| p # i :: :: array
+| p @ s :: :: object
