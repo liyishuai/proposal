@@ -29,6 +29,25 @@
 \newnote{bcp}{Chocolate}
 \newnote{sz}{violet}
 
+\usepackage{amsthm}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+
+\newcommand{\bool}{\mathbb B}
+\newcommand{\true}{\ottkw{true}}
+\newcommand{\false}{\ottkw{false}}
+\newcommand{\imp}{\ottkw{implements}}
+\newcommand{\pass}{\ottkw{passes}}
+\newcommand{\sound}{\ottkw{sound}}
+\newcommand{\exhaust}{\ottkw{exhaustive}}
+\newcommand{\complete}{\ottkw{complete}}
+\newcommand{\defeq}{\triangleq}
+\newcommand{\implements}[2]{#1\;\imp\;#2}
+\newcommand{\passes}[2]{#1\;\pass\;#2}
+\newcommand{\issound}[1]{#1\;\sound}
+\newcommand{\isexhaust}[1]{#1\;\exhaust}
+\newcommand{\iscomplete}[1]{#1\;\complete}
+
 \input{jexp}
 
 \title{From Interaction Trees to Asynchronous Tests}
@@ -371,6 +390,42 @@ J-expression doesn't have a second entry in the \ilj{"orders"} array.  In this
 case, the test harness can ignore the index and pick any entry in the array as
 fallback.
 
+\subsubsection{Completeness of test suite}
+
+\begin{definition}[Specification, implementation, and test suite]
+  An implementation $i:I$ is a software that performs some observable behavior.
+  A specification $s:S$ is a language of valid behavior.  A test suite $t:S\to
+  I\to\bool$ is a program that executes an implementation and computes whether
+  its observed behavior is included in the specification.
+\end{definition}
+
+\begin{definition}[$\pass$ and $\imp$ relations]
+  An implementation $\pass$ a test suite if the test suite determines that its
+  behavior is included in the specification:
+  \[ \passes{i}{t_s}\defeq t_s(i)=\true \]
+  An implementation $\imp$ a specification if all its observable behavior is
+  included in the specification:
+  \[ \implements{i}{s}\defeq\forall t,t_s(i)=\true \]
+\end{definition}
+
+\begin{definition}[Soundness, exhaustiveness, and completeness]
+  A test suite is $\sound$ if all implementations that $\imp$ the specification
+  $\pass$ it:
+  \[ \issound{t}\defeq\forall s,\forall i,
+  \implements{i}{s}\implies\passes{i}{t_s} \]
+
+  A test suite is $\exhaust$ if all implementations that $\pass$ it $\imp$ the
+  specification:
+  \[ \isexhaust{t}\defeq\forall s,\forall i,
+  \passes{i}{t_s}\implies\implements{i}{s} \]
+
+  A test suite is $\complete$ if it's both $\sound$ and $\exhaust$:
+  \[ \iscomplete{t}\defeq\issound{t}\wedge\isexhaust{t} \]
+\end{definition}
+
+\subsubsection{Requirements for IR design}
+\includegraphics[width=\textwidth]{figures/ir-parse}
+\includegraphics[width=\textwidth]{figures/ir-print}
 \subsection{Generic specification language}
 Based on my experiments on various web applications, I'll propose a generic
 library for specifying application-level protocols.  Developers use the
