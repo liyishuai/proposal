@@ -74,7 +74,7 @@ Todo thesis claim.  What technology solves what problem.
 5--6 pages.
 
 \section{Background}
-Property-based testing with QuickChick.  Limitation: nondeterminism makes
+Property-based testing with QuickCheck.  Limitation: nondeterminism makes
 validation logic hard to write.
 
 ISSTA related work.
@@ -87,7 +87,41 @@ Model-based testing in ISSTA paper.
 Refactor previous paper.
 
 \section{Research Plan}
-\subsection{Test Input Generation and Shrinking}
+
+\subsection{Theories of Interactive Testing}
+{\em Interactive testing} is a process that reveals the SUT's interactions and
+determines whether it satisfies the specification.  There are two kinds of
+interactions: (1) {\em inputs} that the tester can specify, and (2) {\em
+  outputs} that are observed from the SUT.  In particular, when testing
+networked systems, the input is a message sent by the tester, and the output is
+a message received from the SUT.
+
+When viewing the SUT as a function from inputs to outputs, we can test the
+system by (1) providing an input, (2) get the output, and (3) validating the
+input-output.  This process is called {\em synchronous testing}.
+
+However, the nature of networked systems is that multiple messages might arrive
+at the system simultaneously, and a high-throughput system should handle the
+messages concurrently.  To check the system's validity upon concurrent inputs,
+the tester should send multiple messages, rather than executing ``one client at
+a time''.  This non-blocking process is called {\em asynchronous testing}.
+
+My goal is to formalise the techniques in \cite{li2021modelbased} into a generic
+theory for asynchronous testing.  I start by formalising synchronous testing
+theory, which describes how to build a sound and exhaustive tester, and will
+expand the theory to asynchronous testing.
+
+\subsubsection{Synchronous Testing}
+Language of stateful server and validator.
+
+Soundness and exhaustive definition and proof.
+
+\subsubsection{Asynchronous Testing}
+
+\subsection{Test Input Generation and Shrinking Techniques}
+To make a sound and exhaustive tester useful in software engineering practices,
+we need to (1) generate test inputs that can reveal potential bugs quickly, and
+(2) report minimal counterexamples to debuggers, rather than thousand-line logs.
 
 One challenge for random testing is that, to find failing examples efficiently,
 it is important to generate fairly large test cases.  But then, after a failing
@@ -426,7 +460,8 @@ fallback.
 \subsubsection{Requirements for IR design}
 \includegraphics[width=\textwidth]{figures/ir-parse}
 \includegraphics[width=\textwidth]{figures/ir-print}
-\subsection{Generic specification language}
+
+\subsection{Generic testing library}
 Based on my experiments on various web applications, I'll propose a generic
 library for specifying application-level protocols.  Developers use the
 domain-specific language to define protocol-specific aspects {\it e.g.}
