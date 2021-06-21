@@ -43,6 +43,16 @@
 \newcommand{\option}{\ottkw{option}\;}
 \newcommand{\Some}[1]{\{#1\}}
 \newcommand{\None}{\varnothing}
+\newcommand{\List}{\ottkw{list}\;}
+\newcommand{\nil}{\varepsilon}
+\newcommand{\yld}{\ottkw{yields}}
+\newcommand{\yields}[2]{#1\;\yld\;#2}
+\newcommand{\accpt}{\ottkw{accepts}}
+\newcommand{\accepts}[2]{#1\;\accpt\;#2}
+\newcommand{\loose}{\ottkw{loose}}
+\newcommand{\isloose}[2]{#1\;\loose_{#2}}
+\newcommand{\strict}{\ottkw{strict}}
+\newcommand{\isstrict}[2]{#1\;\strict_{#2}}
 \newcommand{\bool}{\mathbb B}
 \newcommand{\true}{\ottkw{true}}
 \newcommand{\false}{\ottkw{false}}
@@ -136,7 +146,9 @@ Synchronous testing can be viewed as a {\em server} interacting with a single
 client, producing a {\em trace} of queries and responses, and a validator
 determing whether the trace is acceptable or not.
 
-\paragraph{Server specification and validator implementation}
+\paragraph{Server specifications and validator implementations}
+
+\begin{definition}[Server model]
 Let $Q$ be the query type, $A$ be the response type, $S$ be the server state,
 then a deterministic server starts from an initial state, takes a query,
 computes the response based on its current state, computes the next server
@@ -149,11 +161,13 @@ and transitions to depend on internal choices that are invisible to the testers
 choices, then a nondeterministic server is specified as:
 \begin{align*}
   \Server\triangleq (&Q \times C \times S \to A \times S) \times S \\
-  \sstep :\quad&Q\times C \times \Server \to \Server \\
+  \sstep :\quad&Q\times C \times \Server \to A\times \Server \\
   \sstep(q,c,(step, state))\triangleq\;&\letin{(a,state')}{step(q,c,state)} \\
   &(a, (step, state'))
 \end{align*}
+\end{definition}
 
+\begin{definition}[Validator]
 Let $V$ be the validator state, then a validator starts from an initial state,
 takes a query and its corresponding response, determines whether these
 interactions are valid, and computes the next validator state upon valid:
@@ -165,23 +179,65 @@ interactions are valid, and computes the next validator state upon valid:
   \None & step(q,a,state)=\None
   \end{cases}
 \end{align*}
+\end{definition}
 
-\paragraph{Validity and acceptance}
+\begin{definition}[Trace validity]
+  A trace is valid if there exists an execution of the server model that {\em
+    yields} it.  Let the trace be a list of query-response pairs $(\List
+  (Q\times A))$, then:
+  \begin{enumerate}
+  \item Any server can yield an empty trace:
+    \[\forall s\in\Server, \yields{s}{\nil}\]
+  \item A server yields a non-empty trace if it can yield the head of the trace
+    and step into a server that yields the tail of the trace:
+    \begin{align*}
+      &\forall s\in\Server,\forall q\in Q, \forall a\in A,\forall l\in\List(Q
+      \times A), \\ &(\exists c\in C,\exists s'\in\Server \mid
+      \sstep(q,c,s)=(a,s') \wedge \yields{s'}{l}) \\ &\implies
+      \yields{s}{(q,a)+l}
+    \end{align*}
+  \end{enumerate}
+\end{definition}
 
+\begin{definition}[Trace acceptance]
+  A trace is {\em accepted} by a validator if the validator consumes the entire
+  trace and steps into a nonempty state:
+  \begin{enumerate}
+  \item Any validator accepts an empty trace:
+    \[ \forall v\in\Validator,\accepts{v}{\nil} \]
+  \item A validator accepts a non-empty trace if it can consume the head of the
+    trace and step into a validator that accepts the end of the trace:
+    \begin{align*}
+      &\forall v\in\Validator,\forall q\in Q, \forall a\in A,\forall
+      l\in\List(Q\times A), \\ & (\exists v'\in\Validator\mid
+      \vstep(q,a,v)=\Some{v'}\wedge\accepts{v'}{l}) \\ &\implies
+      \accepts{v}{(q,a)+l}
+    \end{align*}
+  \end{enumerate}
+\end{definition}
 
 \paragraph{Looseness and strictness}
 A tester is {\em sound} if any valid implementation passes it {\it i.e.} no
 false rejection.  A tester is {\em exhaustive} if any invalid implementation
 fails it (given sufficient time) {\it i.e.} no false acceptance.
 
-A sound tester requires a {\em loose} validator that accepts all valid behavior,
-and a faithful test harness that correctly interprets its observed behavior into
-the validator's input; An exhaustive tester requires a {\em strict} validator
-that rejects all invalid behavior, a faithful test harness, plus an exhaustive
-test input generator that reveals all possible behavior of the SUT.  Here I
-focus on the looseness and strictness of the validator.
+A sound tester requires a {\em loose} validator, and a faithful test harness
+that correctly interprets its observed behavior into the validator's input; An
+exhaustive tester requires a {\em strict} validator, a faithful test harness,
+plus an exhaustive test input generator that reveals all possible behavior of
+the SUT.  Here I focus on the looseness and strictness of the validator.
 
+\begin{definition}[Looseness]
+  A validator is {\em loose} per server specification if it accepts all valid
+  trace of the specification:
+  \[ \isloose{v}{s}\triangleq\forall l\in\List(Q\times A), \yields{s}{l}\implies\accepts{v}{l} \]
+\end{definition}
 
+\begin{definition}[Strictness]
+  A validator is {\em strict} per server specification if it only accepts valid
+  traces of the specification:
+  \[ \isstrict{v}{s}\triangleq\forall l\in \List(Q\times A), \accepts{v}{l}\implies\yields{s}{l} \]
+\end{definition}
 
 \subsubsection{Asynchronous Testing}
 
