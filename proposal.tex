@@ -6,7 +6,9 @@
   style=numeric,
   maxcitenames=2]{biblatex}
 \addbibresource{ref}
-
+\def\sectionautorefname{Section}
+\def\subsectionautorefname{Subsection}
+\def\lstnumberautorefname{Line}
 \usepackage[dvipsnames,svgnames,x11names]{xcolor}
 \usepackage{textcomp,listings,lstparams,lstcoq}
 \lstdefinestyle{customcoq}{
@@ -29,10 +31,18 @@
 \newnote{bcp}{Chocolate}
 \newnote{sz}{violet}
 
-\usepackage{amsthm}
+\usepackage{amsthm,amssymb}
 \theoremstyle{definition}
 \newtheorem{definition}{Definition}
 
+\newcommand{\letin}[2]{\ottkw{let}\;#1=#2\;\ottkw{in}}
+\newcommand{\Server}{\ottkw{Server}}
+\newcommand{\Validator}{\ottkw{Validator}}
+\newcommand{\sstep}{\ottkw{sstep}}
+\newcommand{\vstep}{\ottkw{vstep}}
+\newcommand{\option}{\ottkw{option}\;}
+\newcommand{\Some}[1]{\{#1\}}
+\newcommand{\None}{\varnothing}
 \newcommand{\bool}{\mathbb B}
 \newcommand{\true}{\ottkw{true}}
 \newcommand{\false}{\ottkw{false}}
@@ -111,14 +121,72 @@ theory for asynchronous testing.  I start by formalising synchronous testing
 theory, which describes how to build a sound and exhaustive tester, and will
 expand the theory to asynchronous testing.
 
-\subsubsection{Synchronous Testing}
-Language of stateful server and validator.
+A tester consists of two parts: (i) a test harness that interacts with the SUT
+and observes the interactions, and (ii) a validator that determines whether the
+observations satisfy the specification.
 
-Soundness and exhaustive definition and proof.
+The test harness needs to produce counterexamples effectively, and provide good
+coverage of test cases.  The goal is to locate unknown bugs within a fixed
+budget, which is more practical than theoretical, and will be discussed in
+\autoref{sec:harness}.  The test theory in this dissertation focuses on
+guaranteeing the soundness and exhaustiveness of the validator logic.
+
+\subsubsection{Synchronous Testing}
+Synchronous testing can be viewed as a {\em server} interacting with a single
+client, producing a {\em trace} of queries and responses, and a validator
+determing whether the trace is acceptable or not.
+
+\paragraph{Server specification and validator implementation}
+Let $Q$ be the query type, $A$ be the response type, $S$ be the server state,
+then a deterministic server starts from an initial state, takes a query,
+computes the response based on its current state, computes the next server
+state, and loops over:
+\[ \ottkw{DeterministicServer}\triangleq (Q \times S \to A \times S) \times S \]
+
+In general, servers have {\em internal nondeterminism} that allows the responses
+and transitions to depend on internal choices that are invisible to the testers
+{\it e.g.} timestamps and hash algorithms.  Let $C$ be the space of internal
+choices, then a nondeterministic server is specified as:
+\begin{align*}
+  \Server\triangleq (&Q \times C \times S \to A \times S) \times S \\
+  \sstep :\quad&Q\times C \times \Server \to \Server \\
+  \sstep(q,c,(step, state))\triangleq\;&\letin{(a,state')}{step(q,c,state)} \\
+  &(a, (step, state'))
+\end{align*}
+
+Let $V$ be the validator state, then a validator starts from an initial state,
+takes a query and its corresponding response, determines whether these
+interactions are valid, and computes the next validator state upon valid:
+\begin{align*}
+  \Validator\triangleq(&Q \times A \times V \to \option V) \times V \\
+  \vstep:\quad&Q\times A \times \Validator \to \option \Validator \\
+  \vstep(q,a,(step, state))\triangleq\;&\begin{cases}
+  \Some{(step,state')} & step(q,a,state)=\Some{state'} \\
+  \None & step(q,a,state)=\None
+  \end{cases}
+\end{align*}
+
+\paragraph{Validity and acceptance}
+
+
+\paragraph{Looseness and strictness}
+A tester is {\em sound} if any valid implementation passes it {\it i.e.} no
+false rejection.  A tester is {\em exhaustive} if any invalid implementation
+fails it (given sufficient time) {\it i.e.} no false acceptance.
+
+A sound tester requires a {\em loose} validator that accepts all valid behavior,
+and a faithful test harness that correctly interprets its observed behavior into
+the validator's input; An exhaustive tester requires a {\em strict} validator
+that rejects all invalid behavior, a faithful test harness, plus an exhaustive
+test input generator that reveals all possible behavior of the SUT.  Here I
+focus on the looseness and strictness of the validator.
+
+
 
 \subsubsection{Asynchronous Testing}
 
 \subsection{Test Input Generation and Shrinking Techniques}
+\label{sec:harness}
 To make a sound and exhaustive tester useful in software engineering practices,
 we need to (1) generate test inputs that can reveal potential bugs quickly, and
 (2) report minimal counterexamples to debuggers, rather than thousand-line logs.
