@@ -35,7 +35,9 @@
 \theoremstyle{definition}
 \newtheorem{definition}{Definition}
 
-\newcommand{\letin}[2]{\ottkw{let}\;#1=#2\;\ottkw{in}}
+\newcommand{\Let}{\ottkw{let}\;}
+\newcommand{\In}{\;\ottkw{in}}
+\newcommand{\letin}[2]{\Let#1=#2\In}
 \newcommand{\Server}{\ottkw{Server}}
 \newcommand{\Validator}{\ottkw{Validator}}
 \newcommand{\sstep}{\ottkw{sstep}}
@@ -45,28 +47,34 @@
 \newcommand{\None}{\varnothing}
 \newcommand{\List}{\ottkw{list}\;}
 \newcommand{\nil}{\varepsilon}
-\newcommand{\yld}{\ottkw{yields}}
-\newcommand{\yields}[2]{#1\;\yld\;#2}
-\newcommand{\accpt}{\ottkw{accepts}}
-\newcommand{\accepts}[2]{#1\;\accpt\;#2}
-\newcommand{\loose}{\ottkw{loose}}
-\newcommand{\isloose}[2]{#1\;\loose_{#2}}
-\newcommand{\strict}{\ottkw{strict}}
-\newcommand{\isstrict}[2]{#1\;\strict_{#2}}
+\newcommand{\yields}[3]{#1\overset{#2}{\longrightarrow}#3}
+\newcommand{\accepts}[3]{#1\overset{#2}{\longrightarrow}#3}
+\newcommand{\sound}{\ottkw{sound}}
+\newcommand{\issound}[2]{#1\;\sound_{#2}}
+\newcommand{\complete}{\ottkw{complete}}
+\newcommand{\iscomplete}[2]{#1\;\complete_{#2}}
+\newcommand{\Prog}{\ottkw{Prog}}
+\newcommand{\serverOf}{\ottkw{serverOf}}
+\newcommand{\validatorOf}{\ottkw{validatorOf}}
+\newcommand{\Constraint}{\ottkw{Constraint}}
+\newcommand{\fresh}{\ottkw{fresh}}
+\newcommand{\solvable}{\ottkw{solvable}}
+\newcommand{\Write}{\ottkw{write}}
+\newcommand{\Havoc}{\ottkw{havoc}}
+\newcommand{\Eval}{\ottkw{eval}}
+\newcommand{\If}{\ottkw{if}\;}
+\newcommand{\Then}{\ottkw{then}\;}
+\newcommand{\Else}{\ottkw{else}\;}
 \newcommand{\bool}{\mathbb B}
 \newcommand{\true}{\ottkw{true}}
 \newcommand{\false}{\ottkw{false}}
 \newcommand{\imp}{\ottkw{implements}}
 \newcommand{\pass}{\ottkw{passes}}
-\newcommand{\sound}{\ottkw{sound}}
 \newcommand{\exhaust}{\ottkw{exhaustive}}
-\newcommand{\complete}{\ottkw{complete}}
 \newcommand{\defeq}{\triangleq}
 \newcommand{\implements}[2]{#1\;\imp\;#2}
 \newcommand{\passes}[2]{#1\;\pass\;#2}
-\newcommand{\issound}[1]{#1\;\sound}
 \newcommand{\isexhaust}[1]{#1\;\exhaust}
-\newcommand{\iscomplete}[1]{#1\;\complete}
 
 \input{jexp}
 
@@ -106,8 +114,6 @@ Model-based testing in ISSTA paper.
 
 Refactor previous paper.
 
-\section{Research Plan}
-
 \subsection{Theories of Interactive Testing}
 {\em Interactive testing} is a process that reveals the SUT's interactions and
 determines whether it satisfies the specification.  There are two kinds of
@@ -118,7 +124,7 @@ a message received from the SUT.
 
 When viewing the SUT as a function from inputs to outputs, we can test the
 system by (1) providing an input, (2) get the output, and (3) validating the
-input-output.  This process is called {\em synchronous testing}.
+input-output pair.  This process is called {\em synchronous testing}.
 
 However, the nature of networked systems is that multiple messages might arrive
 at the system simultaneously, and a high-throughput system should handle the
@@ -126,7 +132,7 @@ messages concurrently.  To check the system's validity upon concurrent inputs,
 the tester should send multiple messages, rather than executing ``one client at
 a time''.  This non-blocking process is called {\em asynchronous testing}.
 
-My goal is to formalise the techniques in \cite{li2021modelbased} into a generic
+My goal is to formalise the techniques in \textcite{li2021modelbased} into a generic
 theory for asynchronous testing.  I start by formalising synchronous testing
 theory, which describes how to build a sound and exhaustive tester, and will
 expand the theory to asynchronous testing.
@@ -139,17 +145,17 @@ The test harness needs to produce counterexamples effectively, and provide good
 coverage of test cases.  The goal is to locate unknown bugs within a fixed
 budget, which is more practical than theoretical, and will be discussed in
 \autoref{sec:harness}.  The test theory in this dissertation focuses on
-guaranteeing the soundness and exhaustiveness of the validator logic.
+guaranteeing the soundness and completeness of the validator logic.
 
 \subsubsection{Synchronous Testing}
+
+\paragraph{Server specifications and validator implementations}
 Synchronous testing can be viewed as a {\em server} interacting with a single
 client, producing a {\em trace} of queries and responses, and a validator
 determing whether the trace is acceptable or not.
 
-\paragraph{Server specifications and validator implementations}
-
 \begin{definition}[Server model]
-Let $Q$ be the query type, $A$ be the response type, $S$ be the server state,
+Let $Q$ be the query type, $A$ be the response type, $S$ be some server state,
 then a deterministic server starts from an initial state, takes a query,
 computes the response based on its current state, computes the next server
 state, and loops over:
@@ -181,20 +187,49 @@ interactions are valid, and computes the next validator state upon valid:
 \end{align*}
 \end{definition}
 
+\paragraph{Deriving validator from server definition}
+While it is possible to write server specifications and validators manually,
+\textcite{li2021modelbased} have shown that internal nonderminism makes the
+validator difficult to implement and reason about, and demonstrated how to
+automatically derive a validator from a server specification.  That paper has
+evaluated the derived validator's effectiveness by finding bugs in real world
+programs, but did not provide a mathematical proof.  To construct a generic
+derivation process, I start with a simplified derivation model for synchronous
+tests.
+
+\begin{definition}[Server and validator of a program]
+  A program $p\in\Prog$ is a representation that can be ``instantiated'' into a step
+  function of the server model:
+  \[ \serverOf:\Prog\to (Q\times C\times S\to A\times S) \]
+  A program can also be ``interpreted'' into a step function for the validator:
+  \[ \validatorOf:\Prog\to (Q\times A \times V\to \option V) \]
+\end{definition}
+
+\paragraph{Soundness and completeness}
+A tester is {\em sound} if any valid implementation passes it {\it i.e.} no
+false rejection.  A tester is {\em exhaustive} if any invalid implementation
+fails it (given sufficient time) {\it i.e.} no false acceptance.
+
+A sound tester requires a sound validator, and a faithful test harness
+that correctly interprets its observed behavior into the validator's input; An
+exhaustive tester requires a {\em complete} validator, a faithful test harness,
+plus an exhaustive test input generator that reveals all possible behavior of
+the SUT.  Here I focus on the soundness and completeness of the validator.
+
 \begin{definition}[Trace validity]
   A trace is valid if there exists an execution of the server model that {\em
     yields} it.  Let the trace be a list of query-response pairs $(\List
   (Q\times A))$, then:
   \begin{enumerate}
-  \item Any server can yield an empty trace:
-    \[\forall s\in\Server, \yields{s}{\nil}\]
+  \item Any server can step to itself, yielding an empty trace:
+    \[\forall s\in\Server, \yields{s}{\nil}{s}\]
   \item A server yields a non-empty trace if it can yield the head of the trace
     and step into a server that yields the tail of the trace:
     \begin{align*}
-      &\forall s\in\Server,\forall q\in Q, \forall a\in A,\forall l\in\List(Q
-      \times A), \\ &(\exists c\in C,\exists s'\in\Server \mid
-      \sstep(q,c,s)=(a,s') \wedge \yields{s'}{l}) \\ &\implies
-      \yields{s}{(q,a)+l}
+      &\forall s,s_2\in\Server,\forall l\in\List(Q\times A),\forall q\in Q,\forall a\in A,\\
+      &(\exists s_1\in\Server,\exists c\in C\mid\yields{s}{l}{s_1}\wedge
+      \sstep(q,c,s_1)=(a,s_2)) \\
+      &\implies \yields{s}{l+(q,a)}{s_2}
     \end{align*}
   \end{enumerate}
 \end{definition}
@@ -203,42 +238,104 @@ interactions are valid, and computes the next validator state upon valid:
   A trace is {\em accepted} by a validator if the validator consumes the entire
   trace and steps into a nonempty state:
   \begin{enumerate}
-  \item Any validator accepts an empty trace:
-    \[ \forall v\in\Validator,\accepts{v}{\nil} \]
+  \item Any validator accepts an empty trace and steps to itself:
+    \[ \forall v\in\Validator,\accepts{v}{\nil}{v} \]
   \item A validator accepts a non-empty trace if it can consume the head of the
     trace and step into a validator that accepts the end of the trace:
     \begin{align*}
-      &\forall v\in\Validator,\forall q\in Q, \forall a\in A,\forall
-      l\in\List(Q\times A), \\ & (\exists v'\in\Validator\mid
-      \vstep(q,a,v)=\Some{v'}\wedge\accepts{v'}{l}) \\ &\implies
-      \accepts{v}{(q,a)+l}
+      &\forall v,v_2\in\Validator,\forall
+      l\in\List(Q\times A),\forall q\in Q, \forall a\in A, \\
+      & (\exists v_1\in\Validator\mid\accepts{v}{l}{v_1}\wedge
+      \vstep(q,a,v_1)=\Some{v_2}) \\ &\implies
+      \accepts{v}{l+(q,a)}{v_2}
     \end{align*}
   \end{enumerate}
 \end{definition}
 
-\paragraph{Looseness and strictness}
-A tester is {\em sound} if any valid implementation passes it {\it i.e.} no
-false rejection.  A tester is {\em exhaustive} if any invalid implementation
-fails it (given sufficient time) {\it i.e.} no false acceptance.
-
-A sound tester requires a {\em loose} validator, and a faithful test harness
-that correctly interprets its observed behavior into the validator's input; An
-exhaustive tester requires a {\em strict} validator, a faithful test harness,
-plus an exhaustive test input generator that reveals all possible behavior of
-the SUT.  Here I focus on the looseness and strictness of the validator.
-
-\begin{definition}[Looseness]
-  A validator is {\em loose} per server specification if it accepts all valid
+\begin{definition}[Soundness]
+  A validator is {\em sound} per server specification if it accepts all valid
   trace of the specification:
-  \[ \isloose{v}{s}\triangleq\forall l\in\List(Q\times A), \yields{s}{l}\implies\accepts{v}{l} \]
+  \[ \issound{v}{s}\triangleq\forall l\in\List(Q\times A),(\exists s'\in\Server\mid\yields{s}{l}{s'})\implies\exists v'\in\Validator\mid\accepts{v}{l}{v'} \]
 \end{definition}
 
-\begin{definition}[Strictness]
-  A validator is {\em strict} per server specification if it only accepts valid
+\begin{definition}[Completeness]
+  A validator is {\em complete} per server specification if it only accepts valid
   traces of the specification:
-  \[ \isstrict{v}{s}\triangleq\forall l\in \List(Q\times A), \accepts{v}{l}\implies\yields{s}{l} \]
+  \[ \iscomplete{v}{s}\triangleq\forall l\in \List(Q\times A),(\exists{v'}\in\Validator\mid\accepts{v}{l}{v'})\implies\exists{s'}\in\Server\mid\yields{s}{l}{s'} \]
 \end{definition}
 
+\subsubsection{Case Study: Single Instruction Server}
+
+In this experiment, I'll propose simple server language where the program is a
+single instruction.  I'll then show how to instantiate the program into a server
+model, and how derive the program into a validator that is sound and complete.
+That is, defining $\serverOf$ and $\validatorOf$ functions for $\Prog$ such
+that:
+
+\begin{align*}
+  \forall p:\Prog,\;&\letin{s}{\serverOf(p)}\\
+  &\letin{v}{\validatorOf(p)}\\
+  &\issound{v}{s}\wedge\iscomplete{v}{s}
+\end{align*}
+
+\paragraph{Server language}
+The server stores a key-value mapping of natural numbers $\mathbb N\to\mathbb
+N$.  The server program is a three-address instruction that performs an
+arithmetic operation:
+\[\Prog \triangleq \{!dst\gets !src_1\;op\;!src_2\mid op\in\{+,-,\times,\div\},
+dst\;src_1\;src_2\in\mathbb N\}\]
+
+A program in this language is instantiated into a server step as follows: Upon
+receiving a query $q\in Q$, the server writes the query to register 0, and
+writes a choice $c\in C$ to register 1.  The server then runs the instruction,
+and sends back the value stored in register 0:
+
+\begin{align*}
+  \rlap{$Q\triangleq\mathbb N\qquad C\triangleq\mathbb N\qquad A\triangleq\mathbb N$}\\
+  \rlap{$\serverOf(!dst\gets !src_1\;op\;!src_2)(q,c,s_0)\triangleq$}\\
+  &\qquad\letin{s_1}{s_0 [0\mapsto q]}\\
+  &\qquad\letin{s_2}{s_1 [1\mapsto c]}\\
+  &\qquad\letin{s_3}{s_2 [dst\mapsto s_2(src_1)\;op\;s_2(src_2)]}\\
+  &\qquad(s_3(0), s_3)
+\end{align*}
+
+To check a trace against this server model, the validator introduces symbolic
+variables $x\in X$ to represent the nondeterministic values, and for each
+register, records a symbolic expression $e\in E$ to represent its value in terms
+of the variables.  The validator also maintains a set of constraints, saying
+each observed response can be explained by its corresponding symbolic
+expression:
+
+\begin{align*}
+  \rlap{$E\triangleq\; \mathbb N \cup \{!x\mid x\in X\} \cup \{!x_1\;op\;!x_2\mid
+    op\in\{+,-,\times,\div\}, x_1\;x_2\in X\}$}\\
+  \rlap{$\Constraint\triangleq\{e_1=\;e_2\mid e_1\;e_2\in E\}$}\\
+  \rlap{$V\triangleq(\mathbb N\to X)\times\List\Constraint$} \\
+  \rlap{$\solvable:\List\Constraint\to\bool$}\\
+  \rlap{$\validatorOf(p)(q,a,v_0)\triangleq\;$}\\
+  &\qquad\letin{v_1&}{\;&\Write(0,q,v_0)&}\\
+  &\qquad\letin{v_2&}{\;&\Havoc(1,v_1)&}\\
+  &\qquad\letin{(vs_3,cs_3)&}{\;&\Eval(p,v_2)&}\\
+  &\qquad\letin{cs_4&}{\;&cs_3+(!vs_3(0)=a)&}\\
+  \rlap{$\qquad\If \solvable\;cs_4\;\Then \Some{(vs_3,cs_4)}\;\Else \None$}\\
+  \rlap{where}\\
+  \rlap{$\Write(k,q,(vs,cs))\triangleq$}\\
+  \rlap{$\qquad\letin{x}{\fresh(vs,cs)}$}\\
+  \rlap{$\qquad(vs[k\mapsto x],cs+(q=\;!x))$}\\
+  \rlap{$\Havoc(k,(vs,cs))\triangleq$}\\
+  \rlap{$\qquad\letin{x}{\fresh(vs,cs)}$}\\
+  \rlap{$\qquad(vs[k\mapsto x],cs)$}\\
+  \rlap{$\Eval((!dst\gets\;!src_1\;op\;!src_2),(vs,cs))\triangleq$}\\
+  \rlap{$\qquad\letin{x}{\;\fresh(vs,cs)}$}\\
+  \rlap{$\qquad(vs[dst\mapsto x],cs+(!vs(src_1)\;op\;!vs(src_2)=\;!x))$}\\
+  \rlap{$\fresh:V\to X$}\\
+\end{align*}
+
+\section{Research Plan}
+
+\subsection{Theories of Interactive Testing}
+
+\subsubsection{Synchronous Testing in General}
 \subsubsection{Asynchronous Testing}
 
 \subsection{Test Input Generation and Shrinking Techniques}
