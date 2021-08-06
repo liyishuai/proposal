@@ -112,15 +112,30 @@ Todo thesis claim.  What technology solves what problem.
 5--6 pages.
 
 \section{Background}
-Property-based testing with QuickCheck.  Limitation: nondeterminism makes
-validation logic hard to write.
+
+The Deep Specification project~\cite{deepspec} aims at building a web server and
+guarantee its functional correctness with respect to formal specification of the
+network protocol.
+
+My first formal specification of HTTP/1.1 was written as
+QuickChick~\cite{quickchick} properties.  For the deterministic subset of HTTP,
+the specification implements a reference server by translating the RFC
+documents.  However, when specifying RFC~7232: Conditional
+Requests~\cite{rfc7232}, various implementation of ETags should be allowed.  As
+a result, the specification maintains a knowledge of the ETags for each
+resource, and validates the server's behavior against this knowledge.
+
+After specifying RFC~7232, I find this specification method non-scalable per
+nondeterminism of the protocol, and propose specifying the protocol with
+symbolic reference implementation that covers the space of nondeterministic
+behavior.
 
 ISSTA related work.
 
 5--6+ pages.
 
 \section{Prior Results}
-Model-based testing in ISSTA paper.
+\subsection{Practice in Model-Based Asynchronous Testing}
 
 Refactor previous paper.
 
@@ -311,6 +326,7 @@ assumptions:
 \end{enumerate}
 
 \subsubsection{Case Study: Single Instruction Server}
+\label{sec:opserver}
 
 In this experiment, I'll propose simple server language where the program is a
 single instruction.  I'll then show how to instantiate the program into a server
@@ -436,7 +452,15 @@ completeness, as it satisfies all the assumptions in \autoref{sec:sync-reasoning
 \subsection{Theories of Interactive Testing}
 
 \subsubsection{Synchronous Testing in General}
+The server language shown in \autoref{sec:opserver} consists of a single
+instruction.  I plan to expand that language with sequential combinators and
+If-branches, and provide a generic language that is capable of specifying
+real-world servers.
 \subsubsection{Asynchronous Testing}
+The server model in \autoref{sec:sync-reasoning} has separated the computations
+from the interactions.  To model asynchronous interactions of the server, I plan
+to merge the send/receive interactions into the server language, between the
+lines of computations.
 
 \subsection{Test Input Generation and Shrinking Techniques}
 \label{sec:harness}
