@@ -8,6 +8,7 @@
 \addbibresource{ref}
 \def\sectionautorefname{Section}
 \def\subsectionautorefname{Subsection}
+\def\subsubsectionautorefname{Subsubsection}
 \def\lstnumberautorefname{Line}
 \usepackage[dvipsnames,svgnames,x11names]{xcolor}
 \usepackage{textcomp,listings,lstparams,lstcoq}
@@ -35,15 +36,20 @@
 \theoremstyle{definition}
 \newtheorem{definition}{Definition}
 
+\newcommand{\Nat}{\mathbb N}
 \newcommand{\Let}{\ottkw{let}\;}
 \newcommand{\In}{\;\ottkw{in}}
 \newcommand{\letin}[2]{\Let#1=#2\In}
+\newcommand{\sigT}[2]{\{\exists#1\&#2\}}
+\newcommand{\existT}[2]{\{*#1,#2\}}
 \newcommand{\Server}{\ottkw{Server}}
 \newcommand{\Validator}{\ottkw{Validator}}
+\newcommand{\stepServer}{\ottkw{stepServer}}
+\newcommand{\stepValidator}{\ottkw{stepValidator}}
 \newcommand{\sstep}{\ottkw{sstep}}
 \newcommand{\vstep}{\ottkw{vstep}}
 \newcommand{\option}{\ottkw{option}\;}
-\newcommand{\Some}[1]{\{#1\}}
+\newcommand{\Some}[1]{\ottkw{Some}\;#1}
 \newcommand{\None}{\varnothing}
 \newcommand{\List}{\ottkw{list}\;}
 \newcommand{\nil}{\varepsilon}
@@ -56,16 +62,20 @@
 \newcommand{\Prog}{\ottkw{Prog}}
 \newcommand{\serverOf}{\ottkw{serverOf}}
 \newcommand{\validatorOf}{\ottkw{validatorOf}}
+\newcommand{\Reflects}[2]{#1\sim #2}
 \newcommand{\Constraint}{\ottkw{Constraint}}
 \newcommand{\fresh}{\ottkw{fresh}}
 \newcommand{\solvable}{\ottkw{solvable}}
 \newcommand{\Write}{\ottkw{write}}
 \newcommand{\Havoc}{\ottkw{havoc}}
-\newcommand{\Eval}{\ottkw{eval}}
+\newcommand{\Exec}{\ottkw{exec}}
 \newcommand{\If}{\ottkw{if}\;}
 \newcommand{\Then}{\ottkw{then}\;}
 \newcommand{\Else}{\ottkw{else}\;}
 \newcommand{\bool}{\mathbb B}
+\newcommand{\Assignment}{\ottkw{Assignment}}
+\newcommand{\Evaluate}{\ottkw{evaluate}}
+\newcommand{\Satisfy}{\ottkw{satisfy}}
 \newcommand{\true}{\ottkw{true}}
 \newcommand{\false}{\ottkw{false}}
 \newcommand{\imp}{\ottkw{implements}}
@@ -147,7 +157,7 @@ budget, which is more practical than theoretical, and will be discussed in
 \autoref{sec:harness}.  The test theory in this dissertation focuses on
 guaranteeing the soundness and completeness of the validator logic.
 
-\subsubsection{Synchronous Testing}
+\subsubsection{Synchronous Testing Language}
 
 \paragraph{Server specifications and validator implementations}
 Synchronous testing can be viewed as a {\em server} interacting with a single
@@ -159,30 +169,30 @@ Let $Q$ be the query type, $A$ be the response type, $S$ be some server state,
 then a deterministic server starts from an initial state, takes a query,
 computes the response based on its current state, computes the next server
 state, and loops over:
-\[ \ottkw{DeterministicServer}\triangleq (Q \times S \to A \times S) \times S \]
+\[ \ottkw{DeterministicServer}\triangleq\sigT{S}{(Q \times S \to A \times S) \times S} \]
 
 In general, servers have {\em internal nondeterminism} that allows the responses
 and transitions to depend on internal choices that are invisible to the testers
 {\it e.g.} timestamps and hash algorithms.  Let $C$ be the space of internal
 choices, then a nondeterministic server is specified as:
 \begin{align*}
-  \Server\triangleq (&Q \times C \times S \to A \times S) \times S \\
-  \sstep :\quad&Q\times C \times \Server \to A\times \Server \\
-  \sstep(q,c,(step, state))\triangleq\;&\letin{(a,state')}{step(q,c,state)} \\
-  &(a, (step, state'))
+  \Server\triangleq\sigT{S}{(&Q \times C \times S \to A \times S) \times S} \\
+  \stepServer :\quad&Q\times C \times \Server \to A\times \Server \\
+  \stepServer(q,c,\existT{S}{(\sstep, state)})\triangleq\;&\letin{(a,state')}{\sstep(q,c,state)} \\
+  &(a, \existT{S}{(\sstep, state')})
 \end{align*}
 \end{definition}
 
 \begin{definition}[Validator]
-Let $V$ be the validator state, then a validator starts from an initial state,
+Let $V$ be some validator state, then a validator starts from an initial state,
 takes a query and its corresponding response, determines whether these
 interactions are valid, and computes the next validator state upon valid:
 \begin{align*}
-  \Validator\triangleq(&Q \times A \times V \to \option V) \times V \\
-  \vstep:\quad&Q\times A \times \Validator \to \option \Validator \\
-  \vstep(q,a,(step, state))\triangleq\;&\begin{cases}
-  \Some{(step,state')} & step(q,a,state)=\Some{state'} \\
-  \None & step(q,a,state)=\None
+  \Validator\triangleq\sigT{V}{(&Q \times A \times V \to \option V) \times V} \\
+  \stepValidator:\quad&Q\times A \times \Validator \to \option \Validator \\
+  \stepValidator(q,a,\existT{V}{(\vstep, state)})\triangleq\;&\begin{cases}
+  \Some{\existT{V}{(\vstep,state')}} & \vstep(q,a,state)=\Some{state'} \\
+  \None & \vstep(q,a,state)=\None
   \end{cases}
 \end{align*}
 \end{definition}
@@ -198,11 +208,11 @@ derivation process, I start with a simplified derivation model for synchronous
 tests.
 
 \begin{definition}[Server and validator of a program]
-  A program $p\in\Prog$ is a representation that can be ``instantiated'' into a step
-  function of the server model:
-  \[ \serverOf:\Prog\to (Q\times C\times S\to A\times S) \]
-  A program can also be ``interpreted'' into a step function for the validator:
-  \[ \validatorOf:\Prog\to (Q\times A \times V\to \option V) \]
+  A program $p\in\Prog$ is a representation that can be ``instantiated'' into a
+  server model:
+  \[ \serverOf:\Prog\to\Server \]
+  A program can also be ``interpreted'' into a validator:
+  \[ \validatorOf:\Prog\to\Validator \]
 \end{definition}
 
 \paragraph{Soundness and completeness}
@@ -228,7 +238,7 @@ the SUT.  Here I focus on the soundness and completeness of the validator.
     \begin{align*}
       &\forall s,s_2\in\Server,\forall l\in\List(Q\times A),\forall q\in Q,\forall a\in A,\\
       &(\exists s_1\in\Server,\exists c\in C\mid\yields{s}{l}{s_1}\wedge
-      \sstep(q,c,s_1)=(a,s_2)) \\
+      \stepServer(q,c,s_1)=(a,s_2)) \\
       &\implies \yields{s}{l+(q,a)}{s_2}
     \end{align*}
   \end{enumerate}
@@ -246,7 +256,7 @@ the SUT.  Here I focus on the soundness and completeness of the validator.
       &\forall v,v_2\in\Validator,\forall
       l\in\List(Q\times A),\forall q\in Q, \forall a\in A, \\
       & (\exists v_1\in\Validator\mid\accepts{v}{l}{v_1}\wedge
-      \vstep(q,a,v_1)=\Some{v_2}) \\ &\implies
+      \stepValidator(q,a,v_1)=\Some{v_2}) \\ &\implies
       \accepts{v}{l+(q,a)}{v_2}
     \end{align*}
   \end{enumerate}
@@ -264,6 +274,42 @@ the SUT.  Here I focus on the soundness and completeness of the validator.
   \[ \iscomplete{v}{s}\triangleq\forall l\in \List(Q\times A),(\exists{v'}\in\Validator\mid\accepts{v}{l}{v'})\implies\exists{s'}\in\Server\mid\yields{s}{l}{s'} \]
 \end{definition}
 
+\subsubsection{Reasoning on Synchronous Testers}
+\label{sec:sync-reasoning}
+
+Given a server $\existT{S}{(\sstep, s_0)}$ and a validator
+$\existT{V}{(\vstep,v_0)}$, to prove its soundness and completeness, we need to
+show properties over the step functions and the initial states.
+
+\paragraph{Proving completeness}
+The validator's completeness says: For any trace accepted by the validator,
+there exists an execution of the server specification that yields this trace.
+
+Since the server and validator are both loops, I introduce an invariable
+$\{\Reflects{v}{s}\mid v\in V,s\in S\}$, which is preserved by the loops' step
+functions.  The completeness proof is by induction of the validation path, and
+construct the corresponding server execution path based on the following
+assumptions:
+
+\begin{enumerate}
+\item Any accepting validator step has some server state that reflects the
+  post-validation state:
+  \begin{align*}
+    \forall q\in Q,\forall a\in A,\forall v, v'\in V,\;&\vstep(q,a,v)=\Some{v'}\\
+    &\implies\exists s'\in S,\Reflects{v'}{s'} 
+  \end{align*}
+\item Any accepting validator step whose post-validation state reflects some
+  post-execution server state has a corresponding server step from a
+  pre-execution state that reflects the pre-validation state:
+  \begin{align*}
+    &\forall q\in Q,\forall a\in A,\forall v,v'\in V,\forall s'\in S,\\
+    &\vstep(q,a,v)=\Some{v'}\wedge\Reflects{v'}{s'}\\
+    &\implies\exists c\in C,\exists s\in S,\sstep(q,c,s)=(a,s')\wedge\Reflects{v}{s}
+  \end{align*}
+\item The initial validator state only reflects the initial server state:
+  \[\{s\mid\Reflects{v_0}{s}\}=\{s_0\}\]
+\end{enumerate}
+
 \subsubsection{Case Study: Single Instruction Server}
 
 In this experiment, I'll propose simple server language where the program is a
@@ -279,57 +325,111 @@ that:
 \end{align*}
 
 \paragraph{Server language}
-The server stores a key-value mapping of natural numbers $\mathbb N\to\mathbb
-N$.  The server program is a three-address instruction that performs an
-arithmetic operation:
-\[\Prog \triangleq \{!dst\gets !src_1\;op\;!src_2\mid op\in\{+,-,\times,\div\},
-dst\;src_1\;src_2\in\mathbb N\}\]
+The server stores a key-value mapping $K\to\Nat$.  The server program is a
+three-address instruction that performs an arithmetic operation:
+\[\Prog \triangleq \{!dst\gets !src_1\;op\;!src_2\mid op\in\{+,-,\times,\div\};
+dst,src_1,src_2\in K\}\]
 
 A program in this language is instantiated into a server step as follows: Upon
-receiving a query $q\in Q$, the server writes the query to register 0, and
-writes a choice $c\in C$ to register 1.  The server then runs the instruction,
-and sends back the value stored in register 0:
+receiving a query $q\in Q$, the server writes a choice $c\in C$ to key 1, and
+writes the query to key 0.  The server then runs the instruction, and sends back
+the value stored in key 0:
 
 \begin{align*}
-  \rlap{$Q\triangleq\mathbb N\qquad C\triangleq\mathbb N\qquad A\triangleq\mathbb N$}\\
-  \rlap{$\serverOf(!dst\gets !src_1\;op\;!src_2)(q,c,s_0)\triangleq$}\\
-  &\qquad\letin{s_1}{s_0 [0\mapsto q]}\\
-  &\qquad\letin{s_2}{s_1 [1\mapsto c]}\\
+  \rlap{$Q\triangleq\Nat\qquad C\triangleq\Nat\qquad A\triangleq\Nat$}\\
+  \rlap{$\serverOf(p)\triangleq\existT{(K\to\Nat)}{(\sstep(p), (\_\mapsto0))}$}\\
+  \rlap{where}\\
+  \rlap{$\sstep(!dst\gets !src_1\;op\;!src_2)(q,c,s_0)\triangleq$}\\
+  &\qquad\letin{s_1}{s_0 [k_1\mapsto c]}\\
+  &\qquad\letin{s_2}{s_1 [k_0\mapsto q]}\\
   &\qquad\letin{s_3}{s_2 [dst\mapsto s_2(src_1)\;op\;s_2(src_2)]}\\
-  &\qquad(s_3(0), s_3)
+  &\qquad(s_3(k_0), s_3)
 \end{align*}
 
 To check a trace against this server model, the validator introduces symbolic
-variables $x\in X$ to represent the nondeterministic values, and for each
-register, records a symbolic expression $e\in E$ to represent its value in terms
-of the variables.  The validator also maintains a set of constraints, saying
-each observed response can be explained by its corresponding symbolic
-expression:
+variables $x\in X$ to represent the values stored in each key.  The validator
+also maintains a set of constraints that reflect the server's computations:
 
 \begin{align*}
-  \rlap{$E\triangleq\; \mathbb N \cup \{!x\mid x\in X\} \cup \{!x_1\;op\;!x_2\mid
-    op\in\{+,-,\times,\div\}, x_1\;x_2\in X\}$}\\
-  \rlap{$\Constraint\triangleq\{e_1=\;e_2\mid e_1\;e_2\in E\}$}\\
-  \rlap{$V\triangleq(\mathbb N\to X)\times\List\Constraint$} \\
-  \rlap{$\solvable:\List\Constraint\to\bool$}\\
-  \rlap{$\validatorOf(p)(q,a,v_0)\triangleq\;$}\\
-  &\qquad\letin{v_1&}{\;&\Write(0,q,v_0)&}\\
-  &\qquad\letin{v_2&}{\;&\Havoc(1,v_1)&}\\
-  &\qquad\letin{(vs_3,cs_3)&}{\;&\Eval(p,v_2)&}\\
-  &\qquad\letin{cs_4&}{\;&cs_3+(!vs_3(0)=a)&}\\
-  \rlap{$\qquad\If \solvable\;cs_4\;\Then \Some{(vs_3,cs_4)}\;\Else \None$}\\
+  \rlap{$E\triangleq\; \Nat \cup \{!x\mid x\in X\} \cup \{!x_1\;op\;!x_2\mid
+    op\in\{+,-,\times,\div\}; x_1,x_2\in X\}$}\\
+  \rlap{$\Constraint\triangleq\{e_1=e_2\mid e_1,e_2\in E\}$}\\
+  \rlap{$V\triangleq(K\to X)\times\List\Constraint$}\\
+  \rlap{$\validatorOf(p)\triangleq\existT{V}{(\vstep(p), ((\_\mapsto x_0),(0=\;!x_0)))}$}\\
   \rlap{where}\\
+  \rlap{$\vstep(p)(q,a,v_0)\triangleq\;$}\\
+  &\qquad\letin{v_1&}{\;&\Havoc(k_1,v_0)&}\\
+  &\qquad\letin{v_2&}{\;&\Write(k_0,q,v_1)&}\\
+  &\qquad\letin{(vs_3,cs_3)&}{\;&\Exec(p,v_2)&}\\
+  &\qquad\letin{cs_4&}{\;&cs_3+(!vs_3(k_0)=a)&}\\
+  \rlap{$\qquad\If \solvable(cs_4)\;\Then \Some{(vs_3,cs_4)}\;\Else \None$}\\
   \rlap{$\Write(k,q,(vs,cs))\triangleq$}\\
   \rlap{$\qquad\letin{x}{\fresh(vs,cs)}$}\\
   \rlap{$\qquad(vs[k\mapsto x],cs+(q=\;!x))$}\\
   \rlap{$\Havoc(k,(vs,cs))\triangleq$}\\
   \rlap{$\qquad\letin{x}{\fresh(vs,cs)}$}\\
   \rlap{$\qquad(vs[k\mapsto x],cs)$}\\
-  \rlap{$\Eval((!dst\gets\;!src_1\;op\;!src_2),(vs,cs))\triangleq$}\\
+  \rlap{$\Exec((!dst\gets\;!src_1\;op\;!src_2),(vs,cs))\triangleq$}\\
   \rlap{$\qquad\letin{x}{\;\fresh(vs,cs)}$}\\
   \rlap{$\qquad(vs[dst\mapsto x],cs+(!vs(src_1)\;op\;!vs(src_2)=\;!x))$}\\
   \rlap{$\fresh:V\to X$}\\
+  \rlap{$\solvable:\List\Constraint\to\bool$}
 \end{align*}
+
+When the $\sstep$ function modifies the server state, the $\vstep$ function
+updates the validator's view of the server correspondingly: When the server
+stores a query to key 0, the $\Write$ function maps key 0 to a $\fresh$
+variable, and adds a constraint that the variable's value is equal to the query.
+When the server stores an internal choice to key 1, the $\Havoc$ function maps
+key 1 to a fresh variable with no constraints, because its exact value is
+invisible to the validator.  When the server runs a three-address instruction,
+the $\Exec$ function maps the destination to a fresh variable, and adds a
+constraint that the variable's value should reflect the three-address
+computation.
+
+After updating its symbolic view of the server, the validator expects the
+observed response to be explainable by its symbolic view.  Such expectation is
+checked by a constraint solver, that determines whether the constraints can be
+satisfied by some assignment of the variables:
+
+\begin{align*}
+  \Assignment\triangleq\;&X\to\Nat\\
+  \Evaluate\quad:\;&\Assignment\times E\to\Nat\\
+  \Satisfy(asgn,cs)\triangleq\;&\forall (e_1=e_2)\in cs,\\
+  &\Evaluate(asgn,e_1)=\Evaluate(asgn,e_2)\\
+  \forall cs\in\List{\Constraint},\;&\solvable(cs)\\
+  &\iff\exists\; asgn\in\Assignment,\Satisfy(asgn,cs)
+\end{align*}
+
+To prove the validator's completeness, the reflection relation is defined as:
+
+\begin{align*}
+  (\Reflects{(vs,cs)}{s})\triangleq\exists\;asgn,\;&\Satisfy(asgn,cs)\\
+  &\wedge \forall k\in K,asgn(vs(k))=s(k)
+\end{align*}
+
+This reflection definition is sufficient for proving the validator's
+completeness, as it satisfies all the assumptions in \autoref{sec:sync-reasoning}:
+
+\begin{enumerate}
+\item Any accepting validator step has solved the post-validation constraints
+  $cs'$, which implies an assignment $asgn$ that satisfies $cs'$.  Let $vs'$ be
+  the post-validation key-variable mapping, then $s'=asgn\circ vs'$ reflects the
+  post-validation state $(vs',cs')$ by definition.
+
+\item The $\vstep$ function monotonically increases the list of constraints, and
+  thus monotonically narrows the space of satisfying assignments.  Let $s'$ be
+  the post-execution server state that reflects the post-validation state
+  $(vs',cs')$, then $asgn$ is guaranteed to satisfy the pre-validation
+  constraints $cs$.  Therefore, by analysing the execution of
+  $\vstep(q,a,(vs,cs))$, we can construct the pre-execution server state
+  $s=asgn\circ vs$ and the server's internal choice $c=asgn(\fresh(vs,cs))$ that
+  satisfy $\sstep(q,c,s)=(a,s')$ and $\Reflects{(vs,cs)}{s}$.
+
+\item From the definition of the server and validator's initial state, we can
+  show that the initial server state is the only state that reflects the initial
+  validator state.
+\end{enumerate}
 
 \section{Research Plan}
 
