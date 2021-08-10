@@ -159,13 +159,39 @@ shrinking its symbolic representation.  When running the test with a shrunk
 input, the symbolic representations can be instantiated into request messages
 that reflect the original heuristics.
 
-This thesis is to present a model-based technique for testing networked systems.
-I'll demonstrate the power of symbolic abstract representations in specifying protocols,
-generating test cases, and minimising counterexamples, resulting in a rigorous
-tester program that can capture violations against the protocol specification
+\paragraph{Thesis claim}
+Symbolic abstract representation is a powerful technique in language design that
+can address challenges in testing networked systems with uncertain behavior.
+Specifying protocols with symbolic reference implementation enables validating
+the system's rihavior systematically.  Representing test input as abstract
+messages allows generating and shrinking interesting test cases.  Combining
+these methods result in a rigorous tester that can capture protocol violations
 effectively.
-\lys{Turn this into a concrete claim.}
-\lys{List past and future publications, collaborators.}
+
+This claim will be supported by the following publications:
+\begin{enumerate}
+\item {\it From C to Interaction Trees: Specifying, Verifying, and Testing a
+  Networked Server}~\cite{cpp19}, with Nicolas Koh, Yao Li, Li-yao Xia {\it et
+  al}, where I developed a tester program based on the swap server's ITree
+  specification, and evaluated the tester's effectiveness by mutation testing.
+\item {\it Verifying an HTTP Key-Value Server with Interaction Trees and
+  VST}~\cite{itp21}, with Hengchu Zhang, Wolf Honor\'e, Nicolas Koh, Yao Li,
+  Li-yao Xia {\it et al}, where I developed the top-level specification for
+  \http, and derived a tester client that revealed liveness and
+  interrupt-handling bugs in our HTTP server, despite it was formally verified.
+\item {\it Model-Based Testing of Networked Applications}~\cite{issta21}, which
+  describes my technique of specifying \http with symbolic reference
+  implementations, and from the specification, automatically deriving a tester
+  program that can find bugs in Apache and Nginx.
+\item A theory for model-based asynchronous testing, explaining how to specify
+  protocols using abstract model implementations, and how to guarantee the
+  soundness and completeness of the validator logic derived from the abstract
+  model.
+\item An experience report on test harness design, introducing an intermediate
+  representation for specifying test input generation heuristics, and a generic
+  framework for running the tests and shrinking the counterexamples.
+\end{enumerate}
+
 \lys{Structure of this document.}
 
 \section{Background}
@@ -536,13 +562,22 @@ let tcp (buffer : list packet) =
 
 From the server and network models, I derived a tester client that interacts
 with servers over the network, and validates the observations against the
-protocol specification, as shown in \autoref{fig:framework}.  The key idea is to
-reduce the problem of ``determinining whether an observation is explainable by a
-nondeterministic Turing machine'' into constraint solving.  More details are
-explained in \textcite{issta21}.
+protocol specification, as shown in \autoref{fig:framework}.
+
 
 Using this automatically derived tester program, I have found violations against
-HTTP/1.1 in the latest version of both Apache and Nginx.
+HTTP/1.1 in the latest version of both Apache and Nginx.  More details are
+explained in \textcite{issta21}.
+
+\paragraph{Key innovation}
+To solve the problem of ``determinining whether an observation is explainable by
+a nondeterministic Turing machine'', I reduced it into a constraint
+satisfiability: Although the tester doesn't know the server and network's exact
+choices, it can gain some knowledge of these invisible choices by observing the
+trace of messages.  If the invisible choices are represented as symbolic
+variables, then an observed trace is valid if there exists some value for the
+variables that explains this trace, which can be determined by a constraint
+solver.
 
 \begin{figure}
   \includegraphics[width=\linewidth]{figures/framework}
@@ -594,8 +629,12 @@ determing whether the trace is acceptable or not.
 Let $Q$ be the query type, $A$ be the response type, $S$ be some server state,
 then a deterministic server starts from an initial state, takes a query,
 computes the response based on its current state, computes the next server
-state, and loops over: \lys{Explain sigma types}
+state, and loops over:
 \[ \ottkw{DeterministicServer}\triangleq\sigT{S}{(Q \times S \to A \times S) \times S} \]
+
+This definition pronounced ``A deterministic server has some type $S$ that
+represents its internal state.  It is specified by a step function of type
+$Q\times S\to A\times S$, and an initial state of type $S$.''
 
 In general, servers have {\em internal nondeterminism} that allows the responses
 and transitions to depend on internal choices that are invisible to the testers
@@ -608,6 +647,10 @@ choices, then a nondeterministic server is specified as:
   &(a, \existT{S}{(\sstep, state')})
 \end{align*}
 \end{definition}
+
+Here $\existT{S}{(\sstep, state)}$ specifies a server whose internal state type
+is $S$, and has step function $(\sstep:Q\times C \times S \to A \times S)$ and
+initial state $(state: S)$.
 
 \begin{definition}[Validator]
 Let $V$ be some validator state, then a validator starts from an initial state,
@@ -707,15 +750,37 @@ Given a server $\existT{S}{(\sstep, s_0)}$ and a validator
 $\existT{V}{(\vstep,v_0)}$, to prove its soundness and completeness, we need to
 show properties over the step functions and the initial states.
 
-\lys{Add soundness}
-
-\paragraph{Proving completeness}
-The validator's completeness says: For any trace accepted by the validator,
-there exists an execution of the server specification that yields this trace.
+The validator's soundness says: For any trace producable by the server
+specification, that trace can be accepted by the validator.  The completeness
+says: For any trace accepted by the validator, there exists an execution of the
+server specification that yields this trace.
 
 Since the server and validator are both loops, I introduce an invariable
 $\{\Reflects{v}{s}\mid v\in V,s\in S\}$, which is preserved by the loops' step
-functions.  The completeness proof is by induction of the validation path, and
+functions.
+
+\paragraph{Proving soundness}
+The soundness proof is by forward induction of the server execution path, and
+construct the corresponding validation path based on the following assumptions:
+
+\begin{enumerate}
+\item The initial server state reflects the initial validator state:
+  \[ \Reflects{v_0}{s_0} \]
+\item Any server step whose pre-execution state reflects some pre-validation
+  state can be consumed by the validator into a post-validation state that
+  reflects the post-execution state:
+  \begin{align*}
+    &\forall q\in Q,\forall c\in C,\forall a\in A,\forall s,s'\in S,\forall v\in V,\\
+    &\sstep(q,c,s)=(a,s')\wedge\Reflects{v}{s}\\
+    &\implies\exists v'\in V,\vstep(q,a,v)=\Some{v'}\wedge\Reflects{v'}{s'}
+  \end{align*}
+  \begin{center}
+    \includegraphics[width=.5\textwidth]{figures/soundness-preservation}
+  \end{center}
+\end{enumerate}
+
+\paragraph{Proving completeness}
+The completeness proof is by backward induction of the validation path, and
 construct the corresponding server execution path based on the following
 assumptions:
 
@@ -734,11 +799,13 @@ assumptions:
     &\vstep(q,a,v)=\Some{v'}\wedge\Reflects{v'}{s'}\\
     &\implies\exists c\in C,\exists s\in S,\sstep(q,c,s)=(a,s')\wedge\Reflects{v}{s}
   \end{align*}
+  \begin{center}
+    \includegraphics[width=.5\textwidth]{figures/completeness-preservation}
+  \end{center}
+
 \item The initial validator state only reflects the initial server state:
   \[\{s\mid\Reflects{v_0}{s}\}=\{s_0\}\]
 \end{enumerate}
-
-\lys{Explain in pictures}
 
 \subsection{Case Study: Single Instruction Server}
 \label{sec:opserver}
