@@ -160,10 +160,13 @@ input, the symbolic representations can be instantiated into request messages
 that reflect the original heuristics.
 
 This thesis is to present a model-based technique for testing networked systems.
-I'll demonstrate the power of symbolic representations in specifying protocols,
+I'll demonstrate the power of symbolic abstract representations in specifying protocols,
 generating test cases, and minimising counterexamples, resulting in a rigorous
 tester program that can capture violations against the protocol specification
 effectively.
+\lys{Turn this into a concrete claim.}
+\lys{List past and future publications, collaborators.}
+\lys{Structure of this document.}
 
 \section{Background}
 
@@ -591,7 +594,7 @@ determing whether the trace is acceptable or not.
 Let $Q$ be the query type, $A$ be the response type, $S$ be some server state,
 then a deterministic server starts from an initial state, takes a query,
 computes the response based on its current state, computes the next server
-state, and loops over:
+state, and loops over: \lys{Explain sigma types}
 \[ \ottkw{DeterministicServer}\triangleq\sigT{S}{(Q \times S \to A \times S) \times S} \]
 
 In general, servers have {\em internal nondeterminism} that allows the responses
@@ -704,6 +707,8 @@ Given a server $\existT{S}{(\sstep, s_0)}$ and a validator
 $\existT{V}{(\vstep,v_0)}$, to prove its soundness and completeness, we need to
 show properties over the step functions and the initial states.
 
+\lys{Add soundness}
+
 \paragraph{Proving completeness}
 The validator's completeness says: For any trace accepted by the validator,
 there exists an execution of the server specification that yields this trace.
@@ -732,6 +737,8 @@ assumptions:
 \item The initial validator state only reflects the initial server state:
   \[\{s\mid\Reflects{v_0}{s}\}=\{s_0\}\]
 \end{enumerate}
+
+\lys{Explain in pictures}
 
 \subsection{Case Study: Single Instruction Server}
 \label{sec:opserver}
@@ -861,9 +868,10 @@ completeness, as it satisfies all the assumptions in \autoref{sec:sync-reasoning
 
 \subsubsection{Synchronous Testing in General}
 The server language shown in \autoref{sec:opserver} consists of a single
-instruction.  I plan to expand that language with sequential combinators and
+instruction.  I plan to extend that language with sequential combinators and
 If-branches, and provide a generic language that is capable of specifying
 real-world servers.
+\lys{Extend the language in more details, formally and informally}
 \subsubsection{Asynchronous Testing}
 The server model in \autoref{sec:sync-reasoning} has separated the computations
 from the interactions.  To model asynchronous interactions of the server, I plan
