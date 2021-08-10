@@ -929,6 +929,9 @@ completeness, as it satisfies all the assumptions in \autoref{sec:sync-reasoning
   validator state.
 \end{enumerate}
 
+The soundness proof is pending, but I've proven the soundness of validators for
+a simpler server language.
+
 \section{Research Plan}
 
 \subsection{Theories of Interactive Testing}
@@ -936,14 +939,35 @@ completeness, as it satisfies all the assumptions in \autoref{sec:sync-reasoning
 \subsubsection{Synchronous Testing in General}
 The server language shown in \autoref{sec:opserver} consists of a single
 instruction.  I plan to extend that language with sequential combinators and
-If-branches, and provide a generic language that is capable of specifying
-real-world servers.
-\lys{Extend the language in more details, formally and informally}
+If-branches, for modelling more realistic server programs.  For example:
+
+\begin{lstlisting}[style=customcoq]
+  Inductive Prog: Type :=
+    Singleton (i: Instruction)
+  | Sequence  (p1 p2: Prog)
+  | Branch    (condition: Expression) (thenP elseP: Prog).
+\end{lstlisting}
+
+This language covers a subset of C programs, excluding loops with indefinite
+iterations (which is not common in server programs' control flow).  It can also
+model various implementation choices, using \ilc{Branch c p1 p2} where the
+\ilc{c}ondition is an unbound variable.
+
 \subsubsection{Asynchronous Testing}
 The server model in \autoref{sec:sync-reasoning} has separated the computations
 from the interactions.  To model asynchronous interactions of the server, I plan
 to merge the send/receive interactions into the server language, between the
-lines of computations.
+lines of computations.  For example:
+
+\begin{lstlisting}[style=customcoq]
+  Inductive Prog  : Type :=
+    Recv (handler : Message -> Prog)
+  | Send (response: Message)
+  | Singleton ...
+  | Sequence ...
+  | Branch ...
+  | ...
+\end{lstlisting}
 
 \subsection{Test Input Generation and Shrinking Techniques}
 \label{sec:harness}
@@ -1289,17 +1313,11 @@ fallback.
 \includegraphics[width=\textwidth]{figures/ir-parse}
 \includegraphics[width=\textwidth]{figures/ir-print}
 
-\subsection{Generic testing library}
-Based on my experiments on various web applications, I'll propose a generic
-library for specifying application-level protocols.  Developers use the
-domain-specific language to define protocol-specific aspects {\it e.g.}
-prototype logic, message encoding {\it etc.}  and the library automatically
-derives the specification into an interactive tester client that can reveal
-servers' incomformance effectively.
-
-5--6+ pages.  Include technical details for evaluation.
-
-Timeline towards dissertation.  Month-level schedule, including publication.
+\section{Evaluation Criteria}
+\lys{I'm getting confused about the concrete goal: If the gap between the
+  theory's langauge and ITree cannot be bridged, how to claim the theory as
+  useful?  Is a peer-reviewed publication sufficient?  The same for the
+  practical side.}
 
 \printbibliography
 
