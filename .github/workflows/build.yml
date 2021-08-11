@@ -11,7 +11,7 @@ jobs:
           args: >
             -pdf -file-line-error -halt-on-error -interaction=nonstopmode
             -jobname=docs/%A
-      - uses: JamesIves/github-pages-deploy-action@dev
+      - uses: JamesIves/github-pages-deploy-action@4.1.4
         with:
           branch: gh-pages
           folder: docs

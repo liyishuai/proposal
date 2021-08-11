@@ -196,7 +196,13 @@ effectively.
   framework for running the tests and shrinking the counterexamples.
 \end{enumerate}
 
-\lys{Structure of this document.}
+This proposal is structured as follows: \autoref{sec:challenges} describes the
+challenges caused by internal and network nondeterminism.
+\autoref{sec:related-work} lists related works in testing network protocols.
+\autoref{sec:practices} and \ref{sec:previous-theories} introduce my previous
+experiments and developed theories.  \autoref{sec:research-plan} and
+\ref{sec:criteria} discuss my plan towards finishing this thesis, with technical
+details in \autoref{sec:appendix-ir}.
 
 \section{Challenges}
 \label{sec:challenges}
@@ -676,7 +682,6 @@ choices, then a nondeterministic server is specified as:
 Here $\existT{S}{\sigma}{(\sstep, state)}$ specifies a server whose internal
 state type is $\sigma$, and has step function $(\sstep:Q\times C \times \sigma
 \to A \times \sigma)$ and initial state $(state: \sigma)$.
-\lys{Notation from TaPL page 364 footnote.}
 
 \begin{definition}[Validator]
 Let $V$ be some validator state, then a validator starts from an initial state,
@@ -715,7 +720,12 @@ tests.
 A tester is {\em sound} if any valid implementation passes it {\it i.e.} no
 false rejection.  A tester is {\em exhaustive} if any invalid implementation
 fails it (given sufficient time) {\it i.e.} no false acceptance.
-
+\footnote{Concepts like ``sound'', ``complete'', ``false positive'', and ``false
+  negative'' have opposite meanings in different contexts.  To avoid further
+  confusion, I'll use ``reject'' and ``accept'' in place of ``positive'' and
+  ``negative''.  The soundness and completeness definitions here is applied from
+  \textcite{Tretmans}.}
+  
 A sound tester requires a sound validator, and a faithful test harness
 that correctly interprets its observed behavior into the validator's input; An
 exhaustive tester requires a {\em complete} validator, a faithful test harness,
@@ -769,14 +779,6 @@ the SUT.  Here I focus on the soundness and completeness of the validator.
   traces of the specification:
   \[ \iscomplete{v}{s}\triangleq\forall l\in \List(Q\times A),(\exists{v'}\in\Validator\mid\accepts{v}{l}{v'})\implies\exists{s'}\in\Server\mid\yields{s}{l}{s'} \]
 \end{definition}
-
-\lys{I first read soundness and completeness the opposite way, too.
-  \textcite{Tretmans} defined ``soundness'', ``exhaustiveness'', and
-  ``completeness'' for test suites (validator + test cases), where soundness
-  says ``refinement implies acceptance'', exhaustiveness says ``acceptance
-  implies refinement'', and completeness is ``sound and exhaustive''.  I
-  remember similar definitions where ``soundness is no false reject'' in Mayur's
-  class, so not sure if it's worth overriding these words' semantics.}
 
 \subsection{Reasoning on Synchronous Testers}
 \label{sec:sync-reasoning}
@@ -968,6 +970,7 @@ The soundness proof is pending, but I've proven the soundness of validators for
 a simpler server language.
 
 \section{Research Plan}
+\label{sec:research-plan}
 
 \subsection{Theories of Interactive Testing}
 \label{sec:future-theories}
@@ -1060,6 +1063,7 @@ or network nondeterminism).
 A preliminary design is shown in \autoref{sec:appendix-ir}.
 
 \section{Evaluation Criteria}
+\label{sec:criteria}
 
 As mentioned in \autoref{sec:intro}, this thesis is to propose language designs
 for (i) validation logic and (ii) test case generation, and provide an
@@ -1083,6 +1087,14 @@ format for web applications.  My tester will generate requests using flexible
 heuristics, that can refer to fields in JSON's data strucutre which can be
 arbitrarily deep.
 
+\paragraph{Research questions}
+\begin{enumerate}
+\item For testing nontrivial protocols, is the specification easy to write and
+  easy to understand?
+\item Can the derived tester effectively produce minimal counterexamples and
+  help debugging server implementations?
+\end{enumerate}
+
 \subsection{Theories: Verified Testing Framework}
 To show the methodology of formally reasoning of derived testers, I'll extend
 the server language $\Prog$ as proposed in \autoref{sec:future-theories}, such
@@ -1095,7 +1107,16 @@ tree of imperative instructions.  While bridging the language gap in between is
 beyond the scope of this thesis, I'd expect the reasoning methods here can
 inspire test developers of other languages.
 
+\paragraph{Research questions}
+\begin{enumerate}
+\item As the $\Prog$ language extends, how to adjust the verification framework
+  to prove validators' soundness and completeness?
+\item Can the proof technique for $\Prog$-based validators be applied to other
+  specification languages, {\it e.g.} interaction trees?
+\end{enumerate}
+
 \printbibliography
+\pagebreak
 
 \appendix
 \section{Language Design for Test Generation}
