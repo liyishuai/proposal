@@ -45,8 +45,8 @@
 \newcommand{\Let}{\ottkw{let}\;}
 \newcommand{\In}{\;\ottkw{in}}
 \newcommand{\letin}[2]{\Let#1=#2\In}
-\newcommand{\sigT}[2]{\{\exists#1\&#2\}}
-\newcommand{\existT}[2]{\{*#1,#2\}}
+\newcommand{\sigT}[2]{\{\exists#1,#2\}}
+\newcommand{\existT}[3]{\ottkw{pack}\;#1=#2\;\ottkw{with}\;#3}
 \newcommand{\Server}{\ottkw{Server}}
 \newcommand{\Validator}{\ottkw{Validator}}
 \newcommand{\stepServer}{\ottkw{stepServer}}
@@ -93,16 +93,18 @@
 
 \input{jexp}
 
-\title{From Interaction Trees to Asynchronous Tests}
+\title{Language Design for Asynchronous Test\\
+  \large \medskip Thesis Proposal}
 \author{Yishuai Li}
 \begin{document}
 \maketitle
 \section{Introduction}
+\label{sec:intro}
 
 The security and robustness of networked systems rest in large part on the
 correct behavior of various sorts of servers.  This can be validated either by
 full-blown verification or model checking against formal specifications, or
-(less expensively) by rigorous testing.
+less expensively by rigorous testing.
 
 Rigorous testing requires a rigorous specification of the protocol that we
 expect the server to obey.  Protocol specifications can be written as (i) a {\em
@@ -124,12 +126,12 @@ messages containing ETags, the tester must remember and reuse the ETags it
 has been given in previous messages from the server.
 
 (2) {\em Beyond} the server, messages and responses between the server and
-different clients might arrive in any order due to network delays and
+different clients might be delayed and reordered by the network and
 operating-system buffering.  If the tester cannot control how the execution
 environment reorders messages---{\it e.g.,} when testing over the Internet---it
 needs to specify what servers are valid as observed over the network.
 
-These nondeterminism pose challenges in various aspects of testing network
+These sources of nondeterminism pose challenges in various aspects of testing network
 protocols: (i) The {\em validation logic} should accept various implementations,
 as long as the behavior is included in the specification's space of
 uncertainties; (ii) To capture bugs effectively, the {\em test harness} should
@@ -137,48 +139,50 @@ generate test cases based on runtime observations; (iii) When {\em shrinking} a
 counterexample, the test harness should adjust the test cases based on the
 server's behavior, which might vary from one execution to another.
 
-To address these challenges, I introduce symbolic languages for writing the
-specification and representing the test cases:
+To address these challenges, I introduce symbolic languages for writing
+specifications and representing test cases:
 
 (i) The specification is written as a reference implementation---a
-nondeterministic Turing machine that exhibits all possible behavior allowed by
+nondeterministic program that exhibits all possible behavior allowed by
 the protocol.  Inter-implementation and inter-execution uncertainties are
 represented by symbolic variables, and the space of nondeterministic behavior is
-defined by all possible assignments of the variables.  The validation logic is
-derived from the reference implementation, by {\em dualising} the server-side
-program into a client-side observer.
+defined by all possible assignments of the variables.
+
+The validation logic is derived from the reference implementation, by {\em
+  dualising} the server-side program into a client-side observer.
 
 (ii) Test generation heuristics are defined as computations from the observed
 trace (list of sent and received messages) to the next message to send.  I
-propose a generic symbolic language to represent this relation between the next
-message and previous messages.
+introduce a symbolic intermediate representation for specifying the relation
+between the next message and previous messages.
 
 (iii) The symbolic language for generating test cases also enables effective
 shrinking of test cases.  The test harness minimizes the counterexample by
 shrinking its symbolic representation.  When running the test with a shrunk
-input, the symbolic representations can be instantiated into request messages
+input, the symbolic representations can be re-instantiated into request messages
 that reflect the original heuristics.
 
 \paragraph{Thesis claim}
-Symbolic abstract representation is a powerful technique in language design that
-can address challenges in testing networked systems with uncertain behavior.
+Symbolic abstract representation can address challenges in testing networked systems with uncertain behavior.
 Specifying protocols with symbolic reference implementation enables validating
-the system's rihavior systematically.  Representing test input as abstract
+the system's behavior systematically.  Representing test input as abstract
 messages allows generating and shrinking interesting test cases.  Combining
 these methods result in a rigorous tester that can capture protocol violations
 effectively.
 
-This claim will be supported by the following publications:
+\bigskip This claim will be supported by the following publications:
 \begin{enumerate}
 \item {\it From C to Interaction Trees: Specifying, Verifying, and Testing a
-  Networked Server}~\cite{cpp19}, with Nicolas Koh, Yao Li, Li-yao Xia {\it et
-  al}, where I developed a tester program based on the swap server's ITree
-  specification, and evaluated the tester's effectiveness by mutation testing.
+  Networked Server}~\cite{cpp19}, with Nicolas Koh, Yao Li, Li-yao Xia, Lennart
+  Beringer, Wolf Honor\'e, and William Mansky, where I developed a tester
+  program based on the swap server's ITree specification, and evaluated the
+  tester's effectiveness by mutation testing.
 \item {\it Verifying an HTTP Key-Value Server with Interaction Trees and
   VST}~\cite{itp21}, with Hengchu Zhang, Wolf Honor\'e, Nicolas Koh, Yao Li,
-  Li-yao Xia {\it et al}, where I developed the top-level specification for
-  \http, and derived a tester client that revealed liveness and
-  interrupt-handling bugs in our HTTP server, despite it was formally verified.
+  Li-yao Xia, Lennart Beringer, and William Mansky, where I developed the
+  top-level specification for \http, and derived a tester client that revealed
+  liveness and interrupt-handling bugs in our HTTP server, despite it was
+  formally verified.
 \item {\it Model-Based Testing of Networked Applications}~\cite{issta21}, which
   describes my technique of specifying \http with symbolic reference
   implementations, and from the specification, automatically deriving a tester
@@ -194,16 +198,11 @@ This claim will be supported by the following publications:
 
 \lys{Structure of this document.}
 
-\section{Background}
-
-\subsection{Challenges}
+\section{Challenges}
+\label{sec:challenges}
 The Deep Specification project~\cite{deepspec} aims at building a web server and
 guarantee its functional correctness with respect to formal specification of the
 network protocol.
-
-My first formal specification of \http was written as
-QuickChick~\cite{quickchick} properties, which takes a trace of requests, and
-determines whether the traces is valid per protocol specification.
 
 \http requests can be conditional: if the client has a local copy of some
 resource and the copy on the server has not changed, then the server needn't
@@ -292,7 +291,7 @@ let check (trace  : stream http_message,
   | _ :: _ :: _  => reject
   end
   \end{lstlisting}
-  \caption{Ad hoc tester for \http conditional requests, for demonstrating how
+  \caption{Ad hoc tester for \http conditional requests, demonstrating how
     tricky it is to write the logic by hand.  The checker determines whether a
     one-client-at-a-time \ilc{trace} is valid or not.  The trace is represented
     as a stream (infinite linked list, constructed by ``\ilc{::}'') of HTTP
@@ -330,7 +329,7 @@ tester observes messages sent and received on the client side, it should allow
 all observations that can be explained by the combination of a valid server + a
 reasonable network environment between the server and clients.
 
-\subsection{Related Work}
+\section{Related Work}
 \label{sec:related-work}
 
 \paragraph{Specifying and Testing Protocols}
@@ -343,7 +342,7 @@ which includes variants of labelled transition systems (LTS); and (3) {\em
   Scenario-oriented} notations that describe the expected behavior from an
 outside observer's point of view ({\it i.e.,} ``god's-eye view'').
 
-The area of model-based testing is well-studied, diverse and difficult to
+The area of model-based testing is well-studied, diverse, and difficult to
 navigate~\cite{anand2013orchestrated}.  Here we focus on techniques that have
 been practiced in testing real-world programs, which includes notations (1) and
 (2).  Notation (3) is infeasible for protocols with nontrivial nondeterminism,
@@ -387,9 +386,25 @@ transmission-related bugs in Linux TFTP upon certain network delays.  Their
 tester used a fixed trace of packets to interact with the server, and the
 generated test cases were the packets' delay time.
 
-\section{Prior Practices in Model-Based Asynchronous Testing}
+\section{Prior Practices in Asynchronous Testing}
+\label{sec:practices}
+\subsection{Specification Languages}
 
-\subsection{Specification Language: Interaction Trees}
+\paragraph{Property-based specification with QuickChick}
+My first formal specification of \http was written as
+QuickChick~\cite{quickchick} properties, which takes a trace of requests, and
+determines whether the traces is valid per protocol specification, like that
+shown in \autoref{fig:etag-tester}.  The specification implemented a constraint
+solving logic by hand, making it hard to scale when the protocol becomes more
+complex, as discussed in \autoref{sec:challenges}
+
+\paragraph{Model-based specification with ITrees}
+To write specifications for protocols' rich semantics, I employed ``interaction
+tree'' (ITree), a generic data structure for representing interactive programs,
+introduced by \textcite{itree}.  ITree enables specifying protocols as monadic
+programs that model valid implementations' possible behavior.  The model program
+can be interpreted into a tester program, to be discussed in
+\autoref{sec:spec-to-test}.
 
 \begin{figure}
   \begin{lstlisting}[style=customcoq]
@@ -453,7 +468,8 @@ CoInductive echo : itree IO () :=
   Vis Input (fun x => Vis (Output x) (fun _ => echo)).
 \end{lstlisting}
 
-\subsection{Methodology}
+\subsection{From Specification to Test}
+\label{sec:spec-to-test}
 From an ITree specification, I conducted ``offline'' testing, which takes a
 trace and determines its validity~\cite{cpp19}, and ``online'' testing, where
 the specification is derived into a client program that validates the system
@@ -571,7 +587,7 @@ explained in \textcite{issta21}.
 
 \paragraph{Key innovation}
 To solve the problem of ``determinining whether an observation is explainable by
-a nondeterministic Turing machine'', I reduced it into a constraint
+a nondeterministic program'', I reduced it into a constraint
 satisfiability: Although the tester doesn't know the server and network's exact
 choices, it can gain some knowledge of these invisible choices by observing the
 trace of messages.  If the invisible choices are represented as symbolic
@@ -586,6 +602,12 @@ solver.
 \end{figure}
 
 \section{Theories Developed for Interactive Testing}
+\label{sec:previous-theories}
+During the testing practice in \autoref{sec:practices}, the tester's quality was
+evaluated by mutation testing, {\it i.e.} running the tester against buggy
+implementations to see if it rejects.  To formally prove that the tester is
+good, I develop a theory for reasoning on testers' good properties.
+
 {\em Interactive testing} is a process that reveals the SUT's interactions and
 determines whether it satisfies the specification.  There are two kinds of
 interactions: (1) {\em inputs} that the tester can specify, and (2) {\em
@@ -604,9 +626,7 @@ the tester should send multiple messages, rather than executing ``one client at
 a time''.  This non-blocking process is called {\em asynchronous testing}.
 
 My goal is to formalise the techniques in \textcite{issta21} into a generic
-theory for asynchronous testing.  I start by formalising synchronous testing
-theory, which describes how to build a sound and exhaustive tester, and will
-expand the theory to asynchronous testing.
+theory for asynchronous testing.
 
 A tester consists of two parts: (i) a test harness that interacts with the SUT
 and observes the interactions, and (ii) a validator that determines whether the
@@ -619,6 +639,10 @@ budget, which is more practical than theoretical, and will be discussed in
 guaranteeing the soundness and completeness of the validator logic.
 
 \subsection{Synchronous Testing Language}
+Before facing the complexity in asynchronous testing, I start by formalising
+synchronous testing theory, which describes how to build a sound and exhaustive
+tester, and will expand the theory to asynchronous testing as described in
+\autoref{sec:future-theories}.
 
 \paragraph{Server specifications and validator implementations}
 Synchronous testing can be viewed as a {\em server} interacting with a single
@@ -632,35 +656,38 @@ computes the response based on its current state, computes the next server
 state, and loops over:
 \[ \ottkw{DeterministicServer}\triangleq\sigT{S}{(Q \times S \to A \times S) \times S} \]
 
-This definition pronounced ``A deterministic server has some type $S$ that
+This definition is pronounced ``A deterministic server has some type $S$ that
 represents its internal state.  It is specified by a step function of type
 $Q\times S\to A\times S$, and an initial state of type $S$.''
 
 In general, servers have {\em internal nondeterminism} that allows the responses
-and transitions to depend on internal choices that are invisible to the testers
+and transitions to depend on internal choices that are invisible to the testers,
 {\it e.g.} timestamps and hash algorithms.  Let $C$ be the space of internal
 choices, then a nondeterministic server is specified as:
 \begin{align*}
-  \Server\triangleq\sigT{S}{(&Q \times C \times S \to A \times S) \times S} \\
-  \stepServer :\quad&Q\times C \times \Server \to A\times \Server \\
-  \stepServer(q,c,\existT{S}{(\sstep, state)})\triangleq\;&\letin{(a,state')}{\sstep(q,c,state)} \\
-  &(a, \existT{S}{(\sstep, state')})
+  &\Server\triangleq\sigT{S}{(Q \times C \times S \to A \times S) \times S} \\
+  &\stepServer:Q\times C \times \Server \to A\times \Server \\
+  &\stepServer(q,c,\existT{S}{\sigma}{(\sstep, state)})\triangleq\\
+  &\qquad\letin{(a,state')}{\sstep(q,c,state)} \\
+  &\qquad(a, \existT{S}{\sigma}{(\sstep, state')})
 \end{align*}
 \end{definition}
 
-Here $\existT{S}{(\sstep, state)}$ specifies a server whose internal state type
-is $S$, and has step function $(\sstep:Q\times C \times S \to A \times S)$ and
-initial state $(state: S)$.
+Here $\existT{S}{\sigma}{(\sstep, state)}$ specifies a server whose internal
+state type is $\sigma$, and has step function $(\sstep:Q\times C \times \sigma
+\to A \times \sigma)$ and initial state $(state: \sigma)$.
+\lys{Notation from TaPL page 364 footnote.}
 
 \begin{definition}[Validator]
 Let $V$ be some validator state, then a validator starts from an initial state,
 takes a query and its corresponding response, determines whether these
 interactions are valid, and computes the next validator state upon valid:
 \begin{align*}
-  \Validator\triangleq\sigT{V}{(&Q \times A \times V \to \option V) \times V} \\
-  \stepValidator:\quad&Q\times A \times \Validator \to \option \Validator \\
-  \stepValidator(q,a,\existT{V}{(\vstep, state)})\triangleq\;&\begin{cases}
-  \Some{\existT{V}{(\vstep,state')}} & \vstep(q,a,state)=\Some{state'} \\
+  &\Validator\triangleq\sigT{V}{(Q \times A \times V \to \option V) \times V} \\
+  &\stepValidator:Q\times A \times \Validator \to \option \Validator \\
+  &\stepValidator(q,a,\existT{V}{\beta}{(\vstep, state)})\\
+  &\qquad\triangleq\begin{cases}
+  \Some{(\existT{V}{\beta}{(\vstep,state')})} & \vstep(q,a,state)=\Some{state'} \\
   \None & \vstep(q,a,state)=\None
   \end{cases}
 \end{align*}
@@ -733,7 +760,7 @@ the SUT.  Here I focus on the soundness and completeness of the validator.
 
 \begin{definition}[Soundness]
   A validator is {\em sound} per server specification if it accepts all valid
-  trace of the specification:
+  traces of the specification:
   \[ \issound{v}{s}\triangleq\forall l\in\List(Q\times A),(\exists s'\in\Server\mid\yields{s}{l}{s'})\implies\exists v'\in\Validator\mid\accepts{v}{l}{v'} \]
 \end{definition}
 
@@ -742,6 +769,14 @@ the SUT.  Here I focus on the soundness and completeness of the validator.
   traces of the specification:
   \[ \iscomplete{v}{s}\triangleq\forall l\in \List(Q\times A),(\exists{v'}\in\Validator\mid\accepts{v}{l}{v'})\implies\exists{s'}\in\Server\mid\yields{s}{l}{s'} \]
 \end{definition}
+
+\lys{I first read soundness and completeness the opposite way, too.
+  \textcite{Tretmans} defined ``soundness'', ``exhaustiveness'', and
+  ``completeness'' for test suites (validator + test cases), where soundness
+  says ``refinement implies acceptance'', exhaustiveness says ``acceptance
+  implies refinement'', and completeness is ``sound and exhaustive''.  I
+  remember similar definitions where ``soundness is no false reject'' in Mayur's
+  class, so not sure if it's worth overriding these words' semantics.}
 
 \subsection{Reasoning on Synchronous Testers}
 \label{sec:sync-reasoning}
@@ -755,7 +790,7 @@ specification, that trace can be accepted by the validator.  The completeness
 says: For any trace accepted by the validator, there exists an execution of the
 server specification that yields this trace.
 
-Since the server and validator are both loops, I introduce an invariable
+Since the server and validator are both loops, I introduce an invariant
 $\{\Reflects{v}{s}\mid v\in V,s\in S\}$, which is preserved by the loops' step
 functions.
 
@@ -810,8 +845,8 @@ assumptions:
 \subsection{Case Study: Single Instruction Server}
 \label{sec:opserver}
 
-In this experiment, I'll propose simple server language where the program is a
-single instruction.  I'll then show how to instantiate the program into a server
+In this experiment, I target a simple server language where the program is a
+single instruction.  I'll show how to instantiate the program into a server
 model, and how derive the program into a validator that is sound and complete.
 That is, defining $\serverOf$ and $\validatorOf$ functions for $\Prog$ such
 that:
@@ -835,7 +870,7 @@ the value stored in key 0:
 
 \begin{align*}
   \rlap{$Q\triangleq\Nat\qquad C\triangleq\Nat\qquad A\triangleq\Nat$}\\
-  \rlap{$\serverOf(p)\triangleq\existT{(K\to\Nat)}{(\sstep(p), (\_\mapsto0))}$}\\
+  \rlap{$\serverOf(p)\triangleq\existT{S}{(K\to\Nat)}{(\sstep(p), (\_\mapsto0))}$}\\
   \rlap{where}\\
   \rlap{$\sstep(!dst\gets !src_1\;op\;!src_2)(q,c,s_0)\triangleq$}\\
   &\qquad\letin{s_1}{s_0 [k_1\mapsto c]}\\
@@ -852,8 +887,8 @@ also maintains a set of constraints that reflect the server's computations:
   \rlap{$E\triangleq\; \Nat \cup \{!x\mid x\in X\} \cup \{!x_1\;op\;!x_2\mid
     op\in\{+,-,\times,\div\}; x_1,x_2\in X\}$}\\
   \rlap{$\Constraint\triangleq\{e_1=e_2\mid e_1,e_2\in E\}$}\\
-  \rlap{$V\triangleq(K\to X)\times\List\Constraint$}\\
-  \rlap{$\validatorOf(p)\triangleq\existT{V}{(\vstep(p), ((\_\mapsto x_0),(0=\;!x_0)))}$}\\
+  \rlap{$\beta\triangleq(K\to X)\times\List\Constraint$}\\
+  \rlap{$\validatorOf(p)\triangleq\existT{V}{\beta}{(\vstep(p), ((\_\mapsto x_0),(0=\;!x_0)))}$}\\
   \rlap{where}\\
   \rlap{$\vstep(p)(q,a,v_0)\triangleq\;$}\\
   &\qquad\letin{v_1&}{\;&\Havoc(k_1,v_0)&}\\
@@ -870,7 +905,7 @@ also maintains a set of constraints that reflect the server's computations:
   \rlap{$\Exec((!dst\gets\;!src_1\;op\;!src_2),(vs,cs))\triangleq$}\\
   \rlap{$\qquad\letin{x}{\;\fresh(vs,cs)}$}\\
   \rlap{$\qquad(vs[dst\mapsto x],cs+(!vs(src_1)\;op\;!vs(src_2)=\;!x))$}\\
-  \rlap{$\fresh:V\to X$}\\
+  \rlap{$\fresh:\beta\to X$}\\
   \rlap{$\solvable:\List\Constraint\to\bool$}
 \end{align*}
 
@@ -935,8 +970,9 @@ a simpler server language.
 \section{Research Plan}
 
 \subsection{Theories of Interactive Testing}
+\label{sec:future-theories}
 
-\subsubsection{Synchronous Testing in General}
+\paragraph{Synchronous Testing in General}
 The server language shown in \autoref{sec:opserver} consists of a single
 instruction.  I plan to extend that language with sequential combinators and
 If-branches, for modelling more realistic server programs.  For example:
@@ -953,7 +989,7 @@ iterations (which is not common in server programs' control flow).  It can also
 model various implementation choices, using \ilc{Branch c p1 p2} where the
 \ilc{c}ondition is an unbound variable.
 
-\subsubsection{Asynchronous Testing}
+\paragraph{Asynchronous Testing}
 The server model in \autoref{sec:sync-reasoning} has separated the computations
 from the interactions.  To model asynchronous interactions of the server, I plan
 to merge the send/receive interactions into the server language, between the
@@ -1021,7 +1057,50 @@ allows the generated abstract input to refer to specific fields in the trace,
 and can handle situations where the referred field is absent (caused by internal
 or network nondeterminism).
 
-\subsubsection{Overview}
+A preliminary design is shown in \autoref{sec:appendix-ir}.
+
+\section{Evaluation Criteria}
+
+As mentioned in \autoref{sec:intro}, this thesis is to propose language designs
+for (i) validation logic and (ii) test case generation, and provide an
+asynchronous testing methodology with (i) theoretical guarantee of soundness and
+completeness, and (ii) practicality in testing real-world applications.
+
+\subsection{Practices: Testing More Complex Network Applications}
+To demonstrate the specification language's expressiveness and the derived
+tester's effectiveness, I'll apply my test framework to a web application on top
+of \http.
+
+\paragraph{Protocol specification}
+I'll develop a simple exchange where users can trade assets by placing orders.
+The application specification for the exchange's functionality will be composed
+with the underlying \http specification, to show that specifications written in
+my language are reusable and can be developed modularly.
+
+\paragraph{Test case generation}
+The exchange server will communicate with clients using JSON, a common message
+format for web applications.  My tester will generate requests using flexible
+heuristics, that can refer to fields in JSON's data strucutre which can be
+arbitrarily deep.
+
+\subsection{Theories: Verified Testing Framework}
+To show the methodology of formally reasoning of derived testers, I'll extend
+the server language $\Prog$ as proposed in \autoref{sec:future-theories}, such
+that a nontrivial application can be written in this language.  I'll then
+implement the $(\validatorOf:\Prog\to\Validator)$ algorithm, and prove its
+soundness and completeness.
+
+The experiments with \http are conducted with ITrees, whereas the $\Prog$ is a
+tree of imperative instructions.  While bridging the language gap in between is
+beyond the scope of this thesis, I'd expect the reasoning methods here can
+inspire test developers of other languages.
+
+\printbibliography
+
+\appendix
+\section{Language Design for Test Generation}
+\label{sec:appendix-ir}
+\subsection{Overview}
 \begin{figure}
   \centering
   \includegraphics[width=.9\textwidth]{figures/overview}
@@ -1082,7 +1161,7 @@ generate requests that depend on previously observed messages, my framework will
 extend the test harness in \autoref{fig:overview} that records a trace of
 messages.
 
-\subsubsection{Architecture}
+\subsection{Architecture}
 \begin{figure}
   \centering
   \includegraphics[width=.8\textwidth]{figures/harness}
@@ -1097,7 +1176,7 @@ on the trace.  For each protocol to test, the developers need to specify how to
 generate J-expressions that represent requests.  Developers also need to define
 how to interpret among the IR, bytes, and application messages.
 
-\subsubsection{Intermediate representation language}
+\subsection{Intermediate representation language}
 The purpose of introducing an IR in this framework is to enable a generic method
 for generating requests that refer to specific fields in the trace.  For
 example, when testing conditional HTTP requests, the generator wants to include
@@ -1255,7 +1334,7 @@ following request IR based on the J-expression above:
   }
 \end{lstlisting}
 
-\subsubsection{Instantiating J-expression into request IR}
+\subsection{Instantiating J-expression into request IR}
 Suppose the test developer has generated some J-expression to represent request
 to send, the tester harness needs to instantiate the J-expression into the
 request IR.  In particular, \ilj{ref} expression referrs to a field in the
@@ -1267,16 +1346,14 @@ response labelled $l$, it is possible that the response hasn't arrived yet.  In
 this case, to avoid blocking the program, the test harness should find some
 fallback options to instantiate the J-expression.  A useful solution is to
 ignore the label and find if any message in the trace has a field of the given
-J-path.  \lys{My implementation is highly functional.  Translate into imperative
-  pseudocode here?}
+J-path.
 
 Even if the labelled response has arrived, considering internal nondeterminism,
 the response might not have a field of the given J-path {\it e.g.}  the
 J-expression doesn't have a second entry in the \ilj{"orders"} array.  In this
 case, the test harness can ignore the index and pick any entry in the array as
 fallback.
-
-\subsubsection{Completeness of test suite}
+\subsection{Completeness of test suite}
 
 \begin{definition}[Specification, implementation, and test suite]
   An implementation $i:I$ is a software that performs some observable behavior.
@@ -1293,7 +1370,6 @@ fallback.
   included in the specification:
   \[ \implements{i}{s}\defeq\forall t,t_s(i)=\true \]
 \end{definition}
-
 \begin{definition}[Soundness, exhaustiveness, and completeness]
   A test suite is $\sound$ if all implementations that $\imp$ the specification
   $\pass$ it:
@@ -1308,17 +1384,9 @@ fallback.
   A test suite is $\complete$ if it's both $\sound$ and $\exhaust$:
   \[ \iscomplete{t}\defeq\issound{t}\wedge\isexhaust{t} \]
 \end{definition}
-
-\subsubsection{Requirements for IR design}
+\subsection{Requirements for IR design}
+\enlargethispage{5\baselineskip}
 \includegraphics[width=\textwidth]{figures/ir-parse}
 \includegraphics[width=\textwidth]{figures/ir-print}
-
-\section{Evaluation Criteria}
-\lys{I'm getting confused about the concrete goal: If the gap between the
-  theory's langauge and ITree cannot be bridged, how to claim the theory as
-  useful?  Is a peer-reviewed publication sufficient?  The same for the
-  practical side.}
-
-\printbibliography
 
 \end{document}

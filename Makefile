@@ -1,7 +1,7 @@
 all: proposal.pdf
 
 %.pdf: %.tex
-	latexmk -pdf $*
+	latexmk -pdf -jobname=docs/%A $*
 
 jexp.tex: jexp.ott
 	ott -i $^ -tex_show_meta false -o $@
@@ -9,4 +9,4 @@ jexp.tex: jexp.ott
 	head -n -6 $@ | tee $@ > /dev/null
 
 clean:
-	latexmk -C proposal
+	$(RM) docs/*

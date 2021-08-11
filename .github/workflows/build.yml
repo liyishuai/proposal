@@ -1,5 +1,5 @@
 ---
-on: [push, pull_request]
+on: push
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -8,6 +8,11 @@ jobs:
       - uses: xu-cheng/latex-action@v2
         with:
           root_file: proposal.tex
-      - uses: actions/upload-artifact@v2
+          args: >
+            -pdf -file-line-error -halt-on-error -interaction=nonstopmode
+            -jobname=docs/%A
+      - uses: JamesIves/github-pages-deploy-action@dev
         with:
-          path: proposal.pdf
+          branch: gh-pages
+          folder: docs
+          single-commit: true
