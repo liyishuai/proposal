@@ -783,8 +783,8 @@ the SUT.  Here I focus on the soundness and completeness of the validator.
 \subsection{Reasoning on Synchronous Testers}
 \label{sec:sync-reasoning}
 
-Given a server $\existT{S}{(\sstep, s_0)}$ and a validator
-$\existT{V}{(\vstep,v_0)}$, to prove its soundness and completeness, we need to
+Given a server $\existT{S}{S}{(\sstep, s_0)}$ and a validator
+$\existT{V}{V}{(\vstep,v_0)}$, to prove its soundness and completeness, we need to
 show properties over the step functions and the initial states.
 
 The validator's soundness says: For any trace producable by the server
