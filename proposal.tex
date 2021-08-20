@@ -1410,4 +1410,65 @@ fallback.
 \includegraphics[width=\textwidth]{figures/ir-parse}
 \includegraphics[width=\textwidth]{figures/ir-print}
 
+\subsection{Experiment}
+To evaluate the effectiveness of this framework in shrinking test input, I
+applied it to the \http experiment in \textcite{issta21}.  The IR encoding for
+HTTP was illustrated in \autoref{fig:trace}.  Printing and parsing between the
+IR and HTTP is straightforward.
+
+\autoref{fig:gen-http} shows how to generate HTTP requests as J-expressions.
+This algorithm employs two heuristics: (1) When generating target path, produce
+known paths more frequently; (2) When generating ETags for preconditions, use
+ETags that exist in the trace.
+
+\begin{figure}
+  \begin{lstlisting}[style=customcoq]
+(** Generate request line. *)
+Definition gen_line (ss : server_state exp) : IO request_line :=
+  p <- gen_path ss;; (* Emphasise paths known in the server state. *)
+  m <- io_choose [Method__GET; Method__PUT];;
+  ret (RequestLine m (RequestTarget__Origin p None) (Version 1 1)).
+
+(** Find ETags in the trace. *)
+Definition find_etag (tr : traceT) : IO jexp :=
+  tags <- io_or (ret $ findpath (this@"fields"@"ETag") id tr) (ret []);;
+  io_choose_ (ret $ Jexp__Object []) tags.
+
+(** Generate precondition from the trace. *)
+Definition gen_condition (tr : traceT) : IO jexp :=
+  condition <- io_choose ["If-Match"; "If-None-Match"];;
+  etag <- find_etag tr;;
+  ret (jkv condition etag).
+
+(** Generate J-expression representing the request. *)
+Definition gen_request (ss : server_state exp) (tr : traceT) : IO jexp :=
+  l <- gen_line ss;;
+  f <- gen_condition tr;;
+  match request__method l with
+  | Method__PUT =>
+    content <- gen_string;;
+    ret (xencode l +
+         jkv "fields" (host_localhost + f + content_length content) +
+         jobj "body" content)
+  | _ => ret $ xencode l + jkv "fields" (host_localhost + f)
+  end.
+  \end{lstlisting}
+  \caption{Generating J-expressions for \http requests}
+  \label{fig:gen-http}
+\end{figure}
+
+After implementing the codec and the request generator, the framework interprets
+the ITree validator (derived from HTTP specification) into an IO program, that
+shrunk the initial counterexample of 11 requests into a minimal example of 2
+requests.
+
+\subsection{Discussion}
+The experiment has revealed the problem of over-shrinking: The shrink algorithm
+over J-expressions is protocol-independent, so it cannot tell which expressions
+are interesting.  For example, shrinking \ilc{HTTP/1.1} into \ilc{HTTP/0.1}
+makes the server always return \ilc{400 Bad Request}.  My framework should
+employ the concepts of ``positive testing'' (only produce test cases that should
+work well) and ``negative testing'' (include semantically bad test cases),
+introduced in Quviq QuickCheck by \textcite{Quviq2006}.
+
 \end{document}
