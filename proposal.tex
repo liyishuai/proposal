@@ -1471,4 +1471,24 @@ employ the concepts of ``positive testing'' (only produce test cases that should
 work well) and ``negative testing'' (include semantically bad test cases),
 introduced in Quviq QuickCheck by \textcite{Quviq2006}.
 
+\subsection{Next Step}
+So far I've studied HTTP.  To demonstrate the generality of my testing method, I
+plan to use this framework to test Unison.
+
+\paragraph{Main property to test}
+Unison claims to ``protect both its internal state and the state of the
+replicas'' at any point of the synchronization process.  To validate this claim,
+the tester should launch the synchronization process, and at any point of the
+process, interrupt it and/or examine its internal state and the replicas.
+
+\paragraph{Observations and specifications}
+Compared to HTTP that interacts with arbitrary clients over the network, Unison
+interacts with either another Unison process over the network or directly the
+file system.  This difference of observation interface introduces a question of
+how to specify the space of valid observations.  The HTTP specification says
+``even upon the most malicious client, the server should behave properly''.
+Should we construct a malicious remote Unison to run against an implementation
+under test (IUT)?  or should we use the should-be-good IUT on both sides, and
+only introduce various test cases like conflicts and interrupts?
+
 \end{document}
